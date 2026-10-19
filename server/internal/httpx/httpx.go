@@ -8,7 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/rahmattomy/personal-messenger/server/internal/apperr"
+	"github.com/tosrv/personal-messenger/server/internal/apperr"
 )
 
 // Error writes {"error": msg} with a status derived from the domain error.

@@ -38,8 +38,11 @@ func Load() (Config, error) {
 	if cfg.DatabaseURL == "" {
 		return cfg, fmt.Errorf("DATABASE_URL is required")
 	}
-	if cfg.IsProduction() && len(cfg.SessionSecret) < 32 {
-		return cfg, fmt.Errorf("SESSION_SECRET must be at least 32 chars in production")
+	if len(cfg.SessionSecret) < 32 {
+		return cfg, fmt.Errorf("SESSION_SECRET must be at least 32 chars (openssl rand -base64 48)")
+	}
+	if cfg.GoogleClientID != "" && (cfg.GoogleClientSecret == "" || cfg.GoogleRedirectURL == "") {
+		return cfg, fmt.Errorf("GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URL are required with GOOGLE_CLIENT_ID")
 	}
 	return cfg, nil
 }

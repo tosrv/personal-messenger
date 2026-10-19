@@ -73,12 +73,30 @@ cd server && go run ./cmd/api      # reads DATABASE_URL etc. from your shell env
 cd web && npm install && npm run dev
 ```
 
+Postgres is published on host port **5433** (not 5432) so it does not clash with a locally installed Postgres. Override with `POSTGRES_HOST_PORT`.
+
 Checks:
 
 ```sh
 cd server && go vet ./... && go test ./...
 cd web && npm run check    # typecheck + oxlint + prettier + vitest
 ```
+
+Integration tests (repositories, sessions) run against a real database and are skipped unless `TEST_DATABASE_URL` is set:
+
+```sh
+docker compose exec db psql -U messenger -c "CREATE DATABASE messenger_test"   # once
+cd server && TEST_DATABASE_URL=postgres://messenger:messenger@localhost:5433/messenger_test?sslmode=disable go test -p 1 ./...
+```
+
+### Google sign-in
+
+Create an OAuth client (type *Web application*) in the [Google Cloud Console](https://console.cloud.google.com/apis/credentials) with:
+
+- Authorized JavaScript origin: `http://localhost:5173`
+- Authorized redirect URI: `http://localhost:5173/api/v1/auth/callback`
+
+Put the client ID and secret in `.env`. Without `GOOGLE_CLIENT_ID` the server still starts, but sign-in is disabled.
 
 ## Configuration
 

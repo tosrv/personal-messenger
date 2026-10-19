@@ -10,17 +10,32 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/rahmattomy/personal-messenger/server/internal/config"
-	"github.com/rahmattomy/personal-messenger/server/internal/middleware"
-	"github.com/rahmattomy/personal-messenger/server/internal/user"
+	"github.com/tosrv/personal-messenger/server/internal/auth"
+	"github.com/tosrv/personal-messenger/server/internal/config"
+	"github.com/tosrv/personal-messenger/server/internal/middleware"
+	"github.com/tosrv/personal-messenger/server/internal/user"
 )
 
-func NewRouter(cfg config.Config, pool *pgxpool.Pool, logger *slog.Logger) *gin.Engine {
+// Deps are the services the router needs, built once in main.
+type Deps struct {
+	Pool     *pgxpool.Pool
+	Logger   *slog.Logger
+	Sessions *auth.SessionStore
+	Auth     *auth.Handler // nil when Google OAuth is not configured
+	Users    *user.Service
+}
+
+func NewRouter(cfg config.Config, d Deps) *gin.Engine {
 	if cfg.IsProduction() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	r := gin.New()
-	r.Use(gin.Recovery(), middleware.RequestLogger(logger), middleware.CORS(cfg.AllowedOrigins))
+	r.Use(
+		gin.Recovery(),
+		middleware.RequestLogger(d.Logger),
+		middleware.CORS(cfg.AllowedOrigins),
+		middleware.SameOrigin(cfg.AllowedOrigins),
+	)
 
 	r.GET("/healthz", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -28,7 +43,7 @@ func NewRouter(cfg config.Config, pool *pgxpool.Pool, logger *slog.Logger) *gin.
 	r.GET("/readyz", func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
 		defer cancel()
-		if err := pool.Ping(ctx); err != nil {
+		if err := d.Pool.Ping(ctx); err != nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unavailable", "database": "down"})
 			return
 		}
@@ -40,9 +55,16 @@ func NewRouter(cfg config.Config, pool *pgxpool.Pool, logger *slog.Logger) *gin.
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	user.NewHandler(user.NewService(user.NewPostgresRepository(pool))).Register(api)
+	if d.Auth != nil {
+		d.Auth.Register(api)
+	} else {
+		api.GET("/auth/google", func(c *gin.Context) {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "google sign-in is not configured"})
+		})
+	}
 
-	// Milestone 2: /auth/google, /auth/callback, /auth/logout, /me
+	private := api.Group("", auth.RequireSession(d.Sessions))
+	user.NewHandler(d.Users).Register(private)
 	// Milestone 3: /conversations, /conversations/:id/messages
 	// Milestone 4: /ws
 

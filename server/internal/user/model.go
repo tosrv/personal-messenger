@@ -23,6 +23,20 @@ type PublicProfile struct {
 	AvatarURL   string `json:"avatar_url,omitempty"`
 }
 
+// Me is the signed-in user's view of their own account.
+type Me struct {
+	PublicProfile
+	Email string `json:"email"`
+}
+
 func (u User) Public() PublicProfile {
 	return PublicProfile{ID: u.ID, Username: u.Username, DisplayName: u.DisplayName, AvatarURL: u.AvatarURL}
+}
+
+// GoogleProfile is the data needed to create or refresh a user from Google.
+type GoogleProfile struct {
+	Subject     string
+	Email       string
+	DisplayName string
+	AvatarURL   string
 }

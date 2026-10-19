@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { UserMenu } from '../features/auth/UserMenu'
 
 const navLink = ({ isActive }: { isActive: boolean }) =>
   `rounded-md px-2 py-1 text-sm ${isActive ? 'font-medium text-fg' : 'text-muted hover:text-fg'}`
@@ -7,7 +8,7 @@ export function Layout() {
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="border-b border-line">
-        <nav className="mx-auto flex max-w-3xl items-center gap-4 px-4 py-3">
+        <nav className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3 sm:gap-4">
           <NavLink to="/" className="mr-auto font-semibold">
             Messenger
           </NavLink>
@@ -17,6 +18,7 @@ export function Layout() {
           <NavLink to="/conversations" className={navLink}>
             Chats
           </NavLink>
+          <UserMenu />
         </nav>
       </header>
       <main className="flex-1">

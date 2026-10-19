@@ -1,4 +1,4 @@
-const sizes = { md: 'size-10 text-sm', lg: 'size-20 text-2xl' }
+const sizes = { sm: 'size-7 text-xs', md: 'size-10 text-sm', lg: 'size-20 text-2xl' }
 
 export function Avatar({
   name,

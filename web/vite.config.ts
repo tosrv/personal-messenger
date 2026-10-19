@@ -10,6 +10,9 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    // Docker on Windows/macOS bind mounts don't deliver file events; poll instead.
+    watch:
+      process.env.VITE_USE_POLLING === 'true' ? { usePolling: true, interval: 300 } : undefined,
     // Same-origin in dev so session cookies work without cross-site config.
     proxy: {
       '/api': { target: apiTarget, changeOrigin: true },

@@ -10,9 +10,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/rahmattomy/personal-messenger/server/internal/config"
-	"github.com/rahmattomy/personal-messenger/server/internal/database"
-	"github.com/rahmattomy/personal-messenger/server/internal/httpapi"
+	"github.com/tosrv/personal-messenger/server/internal/auth"
+	"github.com/tosrv/personal-messenger/server/internal/config"
+	"github.com/tosrv/personal-messenger/server/internal/database"
+	"github.com/tosrv/personal-messenger/server/internal/httpapi"
+	"github.com/tosrv/personal-messenger/server/internal/user"
 )
 
 func main() {
@@ -40,9 +42,33 @@ func main() {
 	}
 	defer pool.Close()
 
+	sessions := auth.NewSessionStore(pool)
+	users := user.NewService(user.NewPostgresRepository(pool))
+
+	var authHandler *auth.Handler
+	if cfg.GoogleClientID != "" {
+		authHandler, err = auth.NewHandler(ctx, auth.Config{
+			ClientID:      cfg.GoogleClientID,
+			ClientSecret:  cfg.GoogleClientSecret,
+			RedirectURL:   cfg.GoogleRedirectURL,
+			SessionSecret: []byte(cfg.SessionSecret),
+			SecureCookies: cfg.IsProduction(),
+		}, sessions, users, logger)
+		if err != nil {
+			logger.Error("init google sign-in", "err", err)
+			os.Exit(1)
+		}
+	} else {
+		logger.Warn("GOOGLE_CLIENT_ID is empty; sign-in is disabled")
+	}
+
+	go cleanExpiredSessions(ctx, sessions, logger)
+
 	srv := &http.Server{
-		Addr:              ":" + cfg.Port,
-		Handler:           httpapi.NewRouter(cfg, pool, logger),
+		Addr: ":" + cfg.Port,
+		Handler: httpapi.NewRouter(cfg, httpapi.Deps{
+			Pool: pool, Logger: logger, Sessions: sessions, Auth: authHandler, Users: users,
+		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
@@ -61,4 +87,21 @@ func main() {
 		logger.Error("shutdown", "err", err)
 	}
 	logger.Info("server stopped")
+}
+
+func cleanExpiredSessions(ctx context.Context, sessions *auth.SessionStore, logger *slog.Logger) {
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for {
+		if n, err := sessions.DeleteExpired(ctx); err != nil && ctx.Err() == nil {
+			logger.Error("clean expired sessions", "err", err)
+		} else if n > 0 {
+			logger.Info("cleaned expired sessions", "count", n)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }
