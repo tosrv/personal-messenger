@@ -21,9 +21,9 @@ personal-messenger/
 ├── web/                  # React + Vite SPA
 │   └── src/
 │       ├── app/          # router, providers, layout
-│       ├── features/     # auth/, users/, system/ (chat/ in M3) — api.ts + pages + tests
+│       ├── features/     # auth/, users/, chat/, realtime/, system/ — api.ts + pages + tests
 │       ├── components/   # shared UI (states, avatar, error boundary)
-│       ├── lib/          # fetch wrapper, safe redirect
+│       ├── lib/          # fetch wrapper, WebSocket client, safe redirect, time
 │       └── test/         # Vitest setup + render helpers
 ├── server/               # Go API
 │   ├── cmd/api/          # entrypoint
@@ -123,12 +123,13 @@ Schedule `backup.sh` with cron and copy backups off the server.
 
 - [Product requirements](docs/prd.md)
 - [Database design](docs/database.md)
+- [Real-time protocol](docs/realtime.md)
 - [Architecture decision records](docs/adr/README.md)
 
 ## Roadmap
 
 - [x] M1 Foundation — repo layout, Gin, Vite, Postgres, health check, first migration
 - [x] M2 Auth & profiles — Google OIDC, sessions, usernames, search
-- [x] M3 Messaging API — conversations, messages, pagination, membership checks (new messages polled every 4 s until M4)
-- [ ] M4 Real-time — WebSocket auth, hub, ack, reconnect + sync, dedupe
+- [x] M3 Messaging API — conversations, messages, pagination, membership checks
+- [x] M4 Real-time — WebSocket push, reconnect with backoff, catch-up sync, idempotent sends
 - [ ] M5 Production readiness — rate limiting, tests, HTTPS deploy, backups, portfolio link

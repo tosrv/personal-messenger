@@ -11,6 +11,7 @@ import (
 type Repository interface {
 	GetOrCreateDirect(ctx context.Context, a, b int64) (int64, error)
 	IsMember(ctx context.Context, conversationID, userID int64) (bool, error)
+	MemberIDs(ctx context.Context, conversationID int64) ([]int64, error)
 	ListForUser(ctx context.Context, userID int64) ([]Summary, error)
 	GetForUser(ctx context.Context, conversationID, userID int64) (Summary, error)
 	MarkRead(ctx context.Context, conversationID, userID, messageID int64) error
@@ -60,6 +61,11 @@ func (s *Service) MarkRead(ctx context.Context, viewerID, conversationID, messag
 		return err
 	}
 	return s.repo.MarkRead(ctx, conversationID, viewerID, messageID)
+}
+
+// MemberIDs lists the users in a conversation, for routing real-time events.
+func (s *Service) MemberIDs(ctx context.Context, conversationID int64) ([]int64, error) {
+	return s.repo.MemberIDs(ctx, conversationID)
 }
 
 // RequireMember returns ErrNotFound unless userID belongs to the conversation.

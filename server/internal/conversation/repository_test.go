@@ -44,6 +44,9 @@ func TestPostgresRepository(t *testing.T) {
 				t.Errorf("IsMember(%d, %d) = %v", tc.conv, tc.user, got)
 			}
 		}
+		if ids, err := repo.MemberIDs(ctx, ab); err != nil || len(ids) != 2 {
+			t.Errorf("MemberIDs = %v, %v", ids, err)
+		}
 		if _, err := repo.GetForUser(ctx, ab, carol); !errors.Is(err, apperr.ErrNotFound) {
 			t.Errorf("non-member GetForUser: err = %v", err)
 		}

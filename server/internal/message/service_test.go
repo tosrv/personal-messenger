@@ -46,7 +46,7 @@ func (members) RequireMember(_ context.Context, convID, userID int64) error {
 const validID = "6f1c2c1e-3a5b-4c1d-9e2f-1a2b3c4d5e6f"
 
 func TestSend_Validation(t *testing.T) {
-	svc := NewService(&fakeRepo{}, members{})
+	svc := NewService(&fakeRepo{}, members{}, nil)
 	ctx := context.Background()
 
 	cases := map[string]SendInput{
@@ -64,7 +64,7 @@ func TestSend_Validation(t *testing.T) {
 
 func TestSend_RejectsNonMember(t *testing.T) {
 	repo := &fakeRepo{}
-	svc := NewService(repo, members{})
+	svc := NewService(repo, members{}, nil)
 	_, _, err := svc.Send(context.Background(), SendInput{ConversationID: 1, SenderID: 2, ClientMessageID: validID, Body: "hi"})
 	if !errors.Is(err, apperr.ErrNotFound) || len(repo.created) != 0 {
 		t.Errorf("err = %v, created = %d; want ErrNotFound and nothing stored", err, len(repo.created))
@@ -73,7 +73,7 @@ func TestSend_RejectsNonMember(t *testing.T) {
 
 func TestSend_AcceptsMaxLengthAndTrimsTrailingWhitespace(t *testing.T) {
 	repo := &fakeRepo{}
-	svc := NewService(repo, members{})
+	svc := NewService(repo, members{}, nil)
 	body := strings.Repeat("é", MaxBodyLen)
 	m, created, err := svc.Send(context.Background(), SendInput{ConversationID: 1, SenderID: 1, ClientMessageID: validID, Body: body + "\n\n"})
 	if err != nil || !created || m.Body != body {
@@ -81,9 +81,32 @@ func TestSend_AcceptsMaxLengthAndTrimsTrailingWhitespace(t *testing.T) {
 	}
 }
 
+type recordingNotifier struct{ got []Message }
+
+func (r *recordingNotifier) MessageCreated(_ context.Context, m Message) { r.got = append(r.got, m) }
+
+// dupRepo reports every create as an idempotent retry.
+type dupRepo struct{ fakeRepo }
+
+func (d *dupRepo) Create(_ context.Context, m Message) (Message, bool, error) { return m, false, nil }
+
+func TestSend_NotifiesOnlyNewMessages(t *testing.T) {
+	in := SendInput{ConversationID: 1, SenderID: 1, ClientMessageID: validID, Body: "hi"}
+
+	n := &recordingNotifier{}
+	if _, _, err := NewService(&fakeRepo{}, members{}, n).Send(context.Background(), in); err != nil || len(n.got) != 1 {
+		t.Errorf("new message: notified %d times, err %v", len(n.got), err)
+	}
+
+	n = &recordingNotifier{}
+	if _, _, err := NewService(&dupRepo{}, members{}, n).Send(context.Background(), in); err != nil || len(n.got) != 0 {
+		t.Errorf("retry: notified %d times, err %v", len(n.got), err)
+	}
+}
+
 func TestList_LimitsAndDirection(t *testing.T) {
 	repo := &fakeRepo{}
-	svc := NewService(repo, members{})
+	svc := NewService(repo, members{}, nil)
 	ctx := context.Background()
 
 	_, _ = svc.List(ctx, ListInput{ConversationID: 1, ViewerID: 1, Limit: 1000})

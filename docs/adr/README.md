@@ -9,6 +9,7 @@ Each record captures one significant technical decision: the context, what was c
 | [0003](0003-postgres-source-of-truth.md) | PostgreSQL is the source of truth; WebSocket is only transport | Accepted |
 | [0004](0004-fetch-and-tanstack-query.md) | Use `fetch` with TanStack Query instead of Axios | Accepted |
 | [0005](0005-single-backend-instance.md) | Run a single backend instance for the MVP | Accepted |
+| [0006](0006-send-over-rest-receive-over-websocket.md) | Send over REST, receive over WebSocket | Accepted |
 
 ## Template
 

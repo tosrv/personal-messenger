@@ -29,13 +29,21 @@ type Membership interface {
 	RequireMember(ctx context.Context, conversationID, userID int64) error
 }
 
-type Service struct {
-	repo    Repository
-	members Membership
+// Notifier is told about each newly stored message, after it is committed
+// (implemented by realtime.Notifier). It must not block.
+type Notifier interface {
+	MessageCreated(ctx context.Context, m Message)
 }
 
-func NewService(repo Repository, members Membership) *Service {
-	return &Service{repo: repo, members: members}
+type Service struct {
+	repo     Repository
+	members  Membership
+	notifier Notifier
+}
+
+// NewService builds the service; notifier may be nil.
+func NewService(repo Repository, members Membership, notifier Notifier) *Service {
+	return &Service{repo: repo, members: members, notifier: notifier}
 }
 
 type SendInput struct {
@@ -75,6 +83,10 @@ func (s *Service) Send(ctx context.Context, in SendInput) (Message, bool, error)
 	}
 	if err != nil {
 		return Message{}, false, fmt.Errorf("store message: %w", err)
+	}
+	// Only a newly stored message is pushed; a retry was already delivered.
+	if created && s.notifier != nil {
+		s.notifier.MessageCreated(ctx, m)
 	}
 	return m, created, nil
 }

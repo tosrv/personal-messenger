@@ -16,6 +16,7 @@ import (
 	"github.com/tosrv/personal-messenger/server/internal/database"
 	"github.com/tosrv/personal-messenger/server/internal/httpapi"
 	"github.com/tosrv/personal-messenger/server/internal/message"
+	"github.com/tosrv/personal-messenger/server/internal/realtime"
 	"github.com/tosrv/personal-messenger/server/internal/user"
 )
 
@@ -47,7 +48,9 @@ func main() {
 	sessions := auth.NewSessionStore(pool)
 	users := user.NewService(user.NewPostgresRepository(pool))
 	conversations := conversation.NewService(conversation.NewPostgresRepository(pool), users)
-	messages := message.NewService(message.NewPostgresRepository(pool), conversations)
+	hub := realtime.NewHub()
+	notifier := realtime.NewNotifier(hub, conversations, logger)
+	messages := message.NewService(message.NewPostgresRepository(pool), conversations, notifier)
 
 	var authHandler *auth.Handler
 	if cfg.GoogleClientID != "" {
@@ -72,7 +75,7 @@ func main() {
 		Addr: ":" + cfg.Port,
 		Handler: httpapi.NewRouter(cfg, httpapi.Deps{
 			Pool: pool, Logger: logger, Sessions: sessions, Auth: authHandler,
-			Users: users, Conversations: conversations, Messages: messages,
+			Users: users, Conversations: conversations, Messages: messages, Hub: hub,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
@@ -88,6 +91,9 @@ func main() {
 	<-ctx.Done()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	// Shutdown does not wait for hijacked WebSocket connections; close them
+	// so clients reconnect (and resync) as soon as the server is back.
+	hub.CloseAll()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		logger.Error("shutdown", "err", err)
 	}

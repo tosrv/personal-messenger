@@ -60,6 +60,15 @@ func (r *PostgresRepository) IsMember(ctx context.Context, conversationID, userI
 	return ok, err
 }
 
+func (r *PostgresRepository) MemberIDs(ctx context.Context, conversationID int64) ([]int64, error) {
+	rows, err := r.db.Query(ctx,
+		`SELECT user_id FROM conversation_members WHERE conversation_id = $1`, conversationID)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[int64])
+}
+
 // summarySQL selects conversation summaries for viewer $1. Unread counts only
 // messages from the peer that are newer than the viewer's read marker.
 const summarySQL = `

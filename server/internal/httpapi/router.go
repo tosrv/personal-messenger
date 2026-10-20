@@ -13,8 +13,10 @@ import (
 	"github.com/tosrv/personal-messenger/server/internal/auth"
 	"github.com/tosrv/personal-messenger/server/internal/config"
 	"github.com/tosrv/personal-messenger/server/internal/conversation"
+	"github.com/tosrv/personal-messenger/server/internal/httpx"
 	"github.com/tosrv/personal-messenger/server/internal/message"
 	"github.com/tosrv/personal-messenger/server/internal/middleware"
+	"github.com/tosrv/personal-messenger/server/internal/realtime"
 	"github.com/tosrv/personal-messenger/server/internal/user"
 )
 
@@ -27,6 +29,7 @@ type Deps struct {
 	Users         *user.Service
 	Conversations *conversation.Service
 	Messages      *message.Service
+	Hub           *realtime.Hub
 }
 
 func NewRouter(cfg config.Config, d Deps) *gin.Engine {
@@ -71,7 +74,23 @@ func NewRouter(cfg config.Config, d Deps) *gin.Engine {
 	user.NewHandler(d.Users).Register(private)
 	conversation.NewHandler(d.Conversations).Register(private)
 	message.NewHandler(d.Messages).Register(private)
-	// Milestone 4: /ws
+
+	// Real-time events (server → client only, see docs/realtime.md).
+	ws := r.Group("", auth.RequireSession(d.Sessions))
+	realtime.NewHandler(d.Hub, cfg.AllowedOrigins, sessionStillValid(d.Sessions), d.Logger).Register(ws)
 
 	return r
+}
+
+// sessionStillValid lets long-lived sockets notice a sign-out or expiry.
+func sessionStillValid(sessions *auth.SessionStore) realtime.SessionCheck {
+	return func(ctx context.Context, c *gin.Context) bool {
+		token, err := c.Cookie(auth.SessionCookie)
+		if err != nil {
+			return false
+		}
+		id, err := sessions.UserID(ctx, token)
+		want, _ := httpx.UserID(c)
+		return err == nil && id == want
+	}
 }

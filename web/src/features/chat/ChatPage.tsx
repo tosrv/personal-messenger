@@ -5,14 +5,7 @@ import { ErrorState, LoadingState } from '../../components/States'
 import { ApiError } from '../../lib/api'
 import { formatTime } from '../../lib/time'
 import { useMe } from '../auth/api'
-import {
-  useConversation,
-  useMarkRead,
-  useMessages,
-  usePollNewMessages,
-  useSendMessage,
-  type Message,
-} from './api'
+import { useConversation, useMarkRead, useMessages, useSendMessage, type Message } from './api'
 import { Composer } from './Composer'
 
 /** A message the server has not confirmed yet (PRD §6.5). */
@@ -32,7 +25,7 @@ export function ChatPage() {
 
   const { peer } = conversation.data
   return (
-    <section className="mx-auto flex h-[calc(100dvh-3.5rem)] max-w-3xl flex-col">
+    <section className="mx-auto flex h-full max-w-3xl flex-col">
       <header className="flex items-center gap-3 border-b border-line px-4 py-2">
         <Link
           to="/conversations"
@@ -60,7 +53,6 @@ function Thread({
 }) {
   const me = useMe()
   const history = useMessages(conversationId)
-  usePollNewMessages(conversationId, history.isSuccess)
   const send = useSendMessage(conversationId)
   const markRead = useMarkRead(conversationId)
   const [pending, setPending] = useState<Pending[]>([])

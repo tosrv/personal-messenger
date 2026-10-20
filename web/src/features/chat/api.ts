@@ -11,8 +11,6 @@ import { api } from '../../lib/api'
 
 export const MAX_MESSAGE_LENGTH = 4000
 const PAGE_SIZE = 50
-// Until real-time arrives in M4, new messages are fetched on an interval.
-const POLL_MS = 4000
 
 export type Peer = {
   id: number
@@ -51,7 +49,6 @@ export function useConversations() {
     queryKey: conversationsKey,
     queryFn: ({ signal }) => api<{ conversations: Conversation[] }>('/conversations', { signal }),
     select: (data) => data.conversations,
-    refetchInterval: POLL_MS,
   })
 }
 
@@ -92,28 +89,6 @@ export function useMessages(conversationId: number) {
   })
 }
 
-/** Polls for messages newer than the newest one in the cache and appends them. */
-export function usePollNewMessages(conversationId: number, enabled: boolean) {
-  const queryClient = useQueryClient()
-  useQuery({
-    queryKey: ['messages', conversationId, 'poll'],
-    queryFn: async ({ signal }) => {
-      for (;;) {
-        const after = newestMessageId(queryClient, conversationId)
-        const page = await api<Page>(
-          `/conversations/${conversationId}/messages?limit=${PAGE_SIZE}&after=${after}`,
-          { signal },
-        )
-        appendMessages(queryClient, conversationId, page.messages)
-        if (!page.has_more) return Date.now()
-      }
-    },
-    enabled,
-    refetchInterval: POLL_MS,
-    staleTime: 0,
-  })
-}
-
 export function useSendMessage(conversationId: number) {
   const queryClient = useQueryClient()
   return useMutation({
@@ -142,9 +117,39 @@ export function useMarkRead(conversationId: number) {
 }
 
 /**
- * Merges messages into the newest page of the cache, ignoring ones already
- * present. Real-time events (M4) will use this too.
+ * Fetches every message newer than the newest cached one for a conversation
+ * and appends them. Called after (re)connecting so nothing sent while we were
+ * offline is missed (PRD §6.5).
  */
+export async function syncNewMessages(qc: QueryClient, conversationId: number) {
+  if (!qc.getQueryData(messagesKey(conversationId))) return // not open; loads fresh later
+  for (;;) {
+    const after = newestMessageId(qc, conversationId)
+    const page = await api<Page>(
+      `/conversations/${conversationId}/messages?limit=${PAGE_SIZE}&after=${after}`,
+    )
+    appendMessages(qc, conversationId, page.messages)
+    if (!page.has_more) return
+  }
+}
+
+/** Resyncs every conversation in the cache and refreshes the conversation list. */
+export async function syncAll(qc: QueryClient) {
+  const ids = qc
+    .getQueriesData<MessagePages>({ queryKey: ['messages'] })
+    .map(([key]) => key[1])
+    .filter((id): id is number => typeof id === 'number')
+  await Promise.allSettled(ids.map((id) => syncNewMessages(qc, id)))
+  await qc.invalidateQueries({ queryKey: conversationsKey })
+}
+
+/** Applies a "message.new" event pushed by the server. */
+export function receiveMessage(qc: QueryClient, m: Message) {
+  appendMessages(qc, m.conversation_id, [m])
+  void qc.invalidateQueries({ queryKey: conversationsKey })
+}
+
+/** Merges messages into the newest page of the cache, ignoring ones already present. */
 export function appendMessages(qc: QueryClient, conversationId: number, incoming: Message[]) {
   if (incoming.length === 0) return
   qc.setQueryData<MessagePages>(messagesKey(conversationId), (data) => {
