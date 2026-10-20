@@ -104,26 +104,27 @@ All config comes from environment variables; see [.env.example](.env.example). S
 
 ## Deployment (VPS)
 
-1. Point your domain's DNS A/AAAA record at the VPS.
-2. On the VPS: clone the repo, `cp .env.example .env`, set `DOMAIN`, strong `POSTGRES_PASSWORD`, `SESSION_SECRET`, and Google OAuth values (redirect `https://<DOMAIN>/api/v1/auth/callback`).
-3. `docker compose -f infra/compose.prod.yaml --env-file .env up -d --build`
-
-Caddy obtains and renews TLS certificates automatically.
-
-### Backups
-
 ```sh
-sh infra/scripts/backup.sh                       # → backups/messenger-<timestamp>.sql.gz
-sh infra/scripts/restore.sh backups/<file>.sql.gz
+cp .env.example .env    # set DOMAIN, POSTGRES_PASSWORD, SESSION_SECRET, Google OAuth
+docker compose -f infra/compose.prod.yaml --env-file .env up -d --build
 ```
 
-Schedule `backup.sh` with cron and copy backups off the server.
+Caddy obtains and renews TLS certificates automatically. The [operations runbook](docs/operations.md) covers the full first deployment, updates and rollback, daily backups and restore, logs, troubleshooting, and the portfolio **Chat with me** link (`https://<DOMAIN>/u/<your-username>`).
+
+## Security
+
+- Google OpenID Connect with `state`, `nonce` and PKCE; sessions are opaque tokens stored hashed ([ADR 0001](docs/adr/0001-database-backed-sessions.md)).
+- Cookies are `HttpOnly`, `SameSite=Lax`, and `Secure` in production. Origin checks block CSRF and cross-site WebSockets.
+- Every conversation and message access is checked for membership on the server.
+- Rate limits on sign-in, search, starting conversations and sending messages; messages are capped at 4,000 characters.
+- HTTPS with HSTS, a strict Content Security Policy, and logs that never contain tokens, emails or message bodies.
 
 ## Documentation
 
 - [Product requirements](docs/prd.md)
 - [Database design](docs/database.md)
 - [Real-time protocol](docs/realtime.md)
+- [Operations runbook](docs/operations.md)
 - [Architecture decision records](docs/adr/README.md)
 
 ## Roadmap
@@ -132,4 +133,4 @@ Schedule `backup.sh` with cron and copy backups off the server.
 - [x] M2 Auth & profiles — Google OIDC, sessions, usernames, search
 - [x] M3 Messaging API — conversations, messages, pagination, membership checks
 - [x] M4 Real-time — WebSocket push, reconnect with backoff, catch-up sync, idempotent sends
-- [ ] M5 Production readiness — rate limiting, tests, HTTPS deploy, backups, portfolio link
+- [ ] M5 Production readiness — rate limiting, CI, hardened HTTPS stack, backup/restore drill, runbook ✓ · **remaining:** deploy to a VPS with a domain, link from the portfolio

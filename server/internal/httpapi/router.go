@@ -32,13 +32,33 @@ type Deps struct {
 	Hub           *realtime.Hub
 }
 
+// rateRules limit abuse-prone endpoints (PRD §8). Signed-in routes count per
+// user; sign-in routes count per client IP.
+var rateRules = []middleware.RateRule{
+	{Route: "GET /api/v1/auth/google", Limit: middleware.Limit{PerMinute: 10, Burst: 10}},
+	{Route: "GET /api/v1/auth/callback", Limit: middleware.Limit{PerMinute: 10, Burst: 10}},
+	{Route: "GET /api/v1/users/search", Limit: middleware.Limit{PerMinute: 60, Burst: 20}},
+	{Route: "PATCH /api/v1/me/username", Limit: middleware.Limit{PerMinute: 10, Burst: 5}},
+	{Route: "POST /api/v1/conversations", Limit: middleware.Limit{PerMinute: 20, Burst: 10}},
+	{Route: "POST /api/v1/conversations/:id/messages", Limit: middleware.Limit{PerMinute: 30, Burst: 20}},
+}
+
 func NewRouter(cfg config.Config, d Deps) *gin.Engine {
 	if cfg.IsProduction() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	r := gin.New()
+	// Only the reverse proxy may set X-Forwarded-For; otherwise anyone could
+	// spoof their IP and dodge per-IP rate limits.
+	if err := r.SetTrustedProxies(cfg.TrustedProxies); err != nil {
+		d.Logger.Error("invalid TRUSTED_PROXIES; trusting none", "err", err)
+		_ = r.SetTrustedProxies(nil)
+	}
+	limit := middleware.RateLimit(rateRules)
+
 	r.Use(
 		gin.Recovery(),
+		middleware.RequestID(),
 		middleware.RequestLogger(d.Logger),
 		middleware.CORS(cfg.AllowedOrigins),
 		middleware.SameOrigin(cfg.AllowedOrigins),
@@ -63,14 +83,15 @@ func NewRouter(cfg config.Config, d Deps) *gin.Engine {
 	})
 
 	if d.Auth != nil {
-		d.Auth.Register(api)
+		d.Auth.Register(api.Group("", limit))
 	} else {
 		api.GET("/auth/google", func(c *gin.Context) {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "google sign-in is not configured"})
 		})
 	}
 
-	private := api.Group("", auth.RequireSession(d.Sessions))
+	// limit runs after RequireSession so it can count per user.
+	private := api.Group("", auth.RequireSession(d.Sessions), limit)
 	user.NewHandler(d.Users).Register(private)
 	conversation.NewHandler(d.Conversations).Register(private)
 	message.NewHandler(d.Messages).Register(private)

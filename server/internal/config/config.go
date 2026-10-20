@@ -18,6 +18,9 @@ type Config struct {
 	GoogleClientSecret string
 	GoogleRedirectURL  string
 	SessionSecret      string
+	// TrustedProxies are CIDRs whose X-Forwarded-For is believed (the reverse
+	// proxy). Empty means the TCP peer is the client.
+	TrustedProxies []string
 }
 
 func (c Config) IsProduction() bool { return c.Env == "production" }
@@ -34,6 +37,7 @@ func Load() (Config, error) {
 		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
 		GoogleRedirectURL:  os.Getenv("GOOGLE_REDIRECT_URL"),
 		SessionSecret:      os.Getenv("SESSION_SECRET"),
+		TrustedProxies:     splitCSV(os.Getenv("TRUSTED_PROXIES")),
 	}
 	if cfg.DatabaseURL == "" {
 		return cfg, fmt.Errorf("DATABASE_URL is required")

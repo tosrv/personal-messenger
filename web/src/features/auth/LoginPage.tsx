@@ -17,10 +17,18 @@ export function LoginPage() {
   if (me.isPending) return <LoadingState />
   if (me.data) return <Navigate to={next} replace />
 
+  // Visitors from a "Chat with me" link (/u/<username>) see who they will reach.
+  const target = /^\/u\/([A-Za-z0-9_]{3,32})$/.exec(next)?.[1]
+
   return (
     <section className="mx-auto max-w-sm px-4 py-16 text-center">
-      <h1 className="text-2xl font-semibold">Sign in</h1>
-      <p className="mt-2 text-muted">Use your Google account to start chatting.</p>
+      <h1 className="text-2xl font-semibold">
+        {target ? `Sign in to chat with @${target}` : 'Sign in'}
+      </h1>
+      <p className="mt-2 text-muted">
+        Use your Google account. No new password needed, and your email is never shown to other
+        users.
+      </p>
       {error && (
         <p role="alert" className="mt-4 text-danger">
           {errorMessages[error] ?? errorMessages.signin_failed}
