@@ -100,6 +100,11 @@ func NewRouter(cfg config.Config, d Deps) *gin.Engine {
 	ws := r.Group("", auth.RequireSession(d.Sessions))
 	realtime.NewHandler(d.Hub, cfg.AllowedOrigins, sessionStillValid(d.Sessions), d.Logger).Register(ws)
 
+	// Production image: the same server also serves the frontend (one origin, ADR 0002).
+	if cfg.StaticDir != "" {
+		r.NoRoute(serveSPA(cfg.StaticDir))
+	}
+
 	return r
 }
 

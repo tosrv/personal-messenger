@@ -9,7 +9,7 @@ Self-hosted real-time messaging web app: Google login, user search, direct messa
 | Frontend | React, Vite, TypeScript, React Router, TanStack Query, Tailwind CSS v4 |
 | Backend  | Go, Gin, pgx, golang-migrate                      |
 | Database | PostgreSQL 17                                     |
-| Infra    | Docker Compose, Caddy (automatic HTTPS)           |
+| Infra    | Docker, one image on GHCR, host nginx + certbot, GitHub Actions CI |
 
 ## Layout
 
@@ -39,16 +39,18 @@ personal-messenger/
 │   │   └── realtime/     # WebSocket hub                 (M4)
 │   └── migrations/       # versioned SQL
 └── infra/
-    ├── compose.prod.yaml # production stack with Caddy
-    ├── caddy/Caddyfile
+    ├── compose.prod.yaml # production stack (app image + db), copied to the VPS
+    ├── nginx/            # host nginx site for chat.rahmattomy.com
     └── scripts/          # backup.sh, restore.sh
 ```
 
 ## Architecture
 
 ```
-browser ──HTTPS──► Caddy ─┬─ /api/*, /ws ─► server (Go/Gin) ──► PostgreSQL
-                          └─ /*          ─► web (nginx, static SPA)
+production:  browser ──HTTPS──► nginx (host, certbot) ──► app container ──► PostgreSQL
+                                                         Go API + built SPA
+development: browser ──► Vite dev server ─┬─ /api, /ws ─► Go server ──► PostgreSQL
+                                          └─ /*         ─► React (hot reload)
 ```
 
 Frontend and API share one origin, so session cookies stay first-party (`SameSite=Lax`). In dev, Vite proxies `/api` and `/ws` to the Go server for the same effect. PostgreSQL is the source of truth; WebSocket is only transport. Messages carry a client-generated `client_message_id` (unique per sender) so retries are idempotent.
@@ -104,12 +106,16 @@ All config comes from environment variables; see [.env.example](.env.example). S
 
 ## Deployment (VPS)
 
+CI builds one image with the API and the frontend and publishes it as `ghcr.io/tosrv/personal-messenger` (`latest` for `main`, `X.Y.Z` for `vX.Y.Z` tags). The VPS needs no source code, only `compose.yaml` and `.env`:
+
 ```sh
-cp .env.example .env    # set DOMAIN, POSTGRES_PASSWORD, SESSION_SECRET, Google OAuth
-docker compose -f infra/compose.prod.yaml --env-file .env up -d --build
+cd /opt/personal-messenger
+docker compose pull && docker compose up -d
 ```
 
-Caddy obtains and renews TLS certificates automatically. The [operations runbook](docs/operations.md) covers the full first deployment, updates and rollback, daily backups and restore, logs, troubleshooting, and the portfolio **Chat with me** link (`https://<DOMAIN>/u/<your-username>`).
+The host's nginx (with certbot) serves `https://chat.rahmattomy.com` and proxies to the app on `127.0.0.1:8080` ([ADR 0007](docs/adr/0007-single-image-behind-host-nginx.md)). The [operations runbook](docs/operations.md) covers the first deployment, nginx and certbot, updates and rollback, backups and restore, logs, troubleshooting, and the portfolio **Chat with me** link (`https://chat.rahmattomy.com/u/<your-username>`).
+
+To build the production image locally: `docker build -t personal-messenger .`
 
 ## Security
 

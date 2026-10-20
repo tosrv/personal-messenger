@@ -13,7 +13,7 @@ GET /ws   (Upgrade: websocket)
 | Valid `pm_session` cookie (sent automatically, same origin) | `401` before upgrade |
 | `Origin` is in `ALLOWED_ORIGINS` | `403` before upgrade |
 
-In development, Vite proxies `/ws` to the Go server. In production, Caddy does the same.
+In development, Vite proxies `/ws` to the Go server. In production, the host's nginx does the same (`location = /ws` in [infra/nginx](../infra/nginx/chat.rahmattomy.com.conf), with `Upgrade` headers and a 120 s read timeout).
 
 ## Server → client events
 

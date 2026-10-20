@@ -1,0 +1,11 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+docs
+infra
+backups
+**/node_modules
+**/dist
+**/*.exe

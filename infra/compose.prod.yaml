@@ -1,5 +1,10 @@
 # Production stack for a single VPS. See docs/operations.md.
-# Run from repo root: docker compose -f infra/compose.prod.yaml --env-file .env up -d --build
+#
+# On the VPS this file is saved as /opt/personal-messenger/compose.yaml next
+# to a .env file; then:  docker compose pull && docker compose up -d
+#
+# HTTPS is terminated by the host's nginx (infra/nginx/), which proxies to
+# the app on 127.0.0.1:${APP_PORT}. Nothing here is reachable from outside.
 name: personal-messenger
 
 x-logging: &logging
@@ -10,64 +15,44 @@ x-logging: &logging
     max-file: "5"
 
 services:
+  app:
+    image: ghcr.io/tosrv/personal-messenger:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    logging: *logging
+    ports:
+      # Loopback only: the host's nginx is the only way in.
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-messenger}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-messenger}?sslmode=disable
+      APP_BASE_URL: https://${DOMAIN:?set DOMAIN in .env}
+      ALLOWED_ORIGINS: https://${DOMAIN}
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?set GOOGLE_CLIENT_ID in .env}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?set GOOGLE_CLIENT_SECRET in .env}
+      GOOGLE_REDIRECT_URL: https://${DOMAIN}/api/v1/auth/callback
+      # Requests arrive from the host's nginx through Docker's bridge network.
+      TRUSTED_PROXIES: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+    depends_on:
+      db:
+        condition: service_healthy
+
   db:
     image: postgres:17-alpine
     restart: unless-stopped
     logging: *logging
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:-messenger}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-messenger}
     volumes:
       - pgdata:/var/lib/postgresql/data
-    # No ports: the database is reachable only from the server container.
+    # No ports: the database is reachable only from the app container.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 3s
       retries: 10
 
-  server:
-    build: ../server
-    restart: unless-stopped
-    logging: *logging
-    env_file: ../.env
-    environment:
-      APP_ENV: production
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
-      APP_BASE_URL: https://${DOMAIN:?set DOMAIN in .env}
-      ALLOWED_ORIGINS: https://${DOMAIN}
-      GOOGLE_REDIRECT_URL: https://${DOMAIN}/api/v1/auth/callback
-      # Caddy reaches the server over the private Docker network.
-      TRUSTED_PROXIES: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
-    depends_on:
-      db:
-        condition: service_healthy
-
-  web:
-    build: ../web
-    restart: unless-stopped
-    logging: *logging
-
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    logging: *logging
-    environment:
-      DOMAIN: ${DOMAIN}
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - server
-      - web
-
 volumes:
   pgdata:
-  caddy_data:
-  caddy_config:

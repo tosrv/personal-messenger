@@ -1,5 +1,5 @@
 # Local development: Postgres + API + Vite dev server.
-# Production uses infra/compose.prod.yaml (adds Caddy with HTTPS).
+# Production uses the published image instead: see infra/compose.prod.yaml and docs/operations.md.
 name: personal-messenger
 
 services:

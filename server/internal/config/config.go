@@ -21,6 +21,9 @@ type Config struct {
 	// TrustedProxies are CIDRs whose X-Forwarded-For is believed (the reverse
 	// proxy). Empty means the TCP peer is the client.
 	TrustedProxies []string
+	// StaticDir holds the built frontend to serve (production image). Empty in
+	// development, where Vite serves the frontend.
+	StaticDir string
 }
 
 func (c Config) IsProduction() bool { return c.Env == "production" }
@@ -38,6 +41,7 @@ func Load() (Config, error) {
 		GoogleRedirectURL:  os.Getenv("GOOGLE_REDIRECT_URL"),
 		SessionSecret:      os.Getenv("SESSION_SECRET"),
 		TrustedProxies:     splitCSV(os.Getenv("TRUSTED_PROXIES")),
+		StaticDir:          os.Getenv("STATIC_DIR"),
 	}
 	if cfg.DatabaseURL == "" {
 		return cfg, fmt.Errorf("DATABASE_URL is required")

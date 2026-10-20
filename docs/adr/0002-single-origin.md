@@ -1,6 +1,6 @@
 # 0002. Serve the frontend and API from one origin
 
-- Status: Accepted
+- Status: Accepted (production routing updated by [ADR 0007](0007-single-image-behind-host-nginx.md): one app container behind the host's nginx; the single-origin decision is unchanged)
 - Date: 2026-10-19
 
 ## Context

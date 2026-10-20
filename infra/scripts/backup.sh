@@ -1,12 +1,12 @@
 #!/usr/bin/env sh
 # Dump the production database to ./backups (gzip, timestamped) and keep 14 days.
-# Usage (from repo root): sh infra/scripts/backup.sh
-# Cron (daily 03:15): 15 3 * * * cd /opt/personal-messenger && sh infra/scripts/backup.sh >> backups/backup.log 2>&1
+# Usage (in the deployment directory, e.g. /opt/personal-messenger): sh backup.sh
+# Cron (daily 03:15): 15 3 * * * cd /opt/personal-messenger && sh backup.sh >> backups/backup.log 2>&1
 set -eu
 
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
-COMPOSE="${COMPOSE:-docker compose -f infra/compose.prod.yaml --env-file .env}"
+COMPOSE="${COMPOSE:-docker compose}"
 
 mkdir -p "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"

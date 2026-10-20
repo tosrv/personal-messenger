@@ -20,6 +20,9 @@ import (
 	"github.com/tosrv/personal-messenger/server/internal/user"
 )
 
+// version is set at build time (-ldflags "-X main.version=...").
+var version = "dev"
+
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
@@ -81,7 +84,7 @@ func main() {
 	}
 
 	go func() {
-		logger.Info("server listening", "addr", srv.Addr, "env", cfg.Env)
+		logger.Info("server listening", "addr", srv.Addr, "env", cfg.Env, "version", version)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("server error", "err", err)
 			stop()
