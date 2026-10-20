@@ -38,7 +38,7 @@ var rateRules = []middleware.RateRule{
 	{Route: "GET /api/v1/auth/google", Limit: middleware.Limit{PerMinute: 10, Burst: 10}},
 	{Route: "GET /api/v1/auth/callback", Limit: middleware.Limit{PerMinute: 10, Burst: 10}},
 	{Route: "GET /api/v1/users/search", Limit: middleware.Limit{PerMinute: 60, Burst: 20}},
-	{Route: "PATCH /api/v1/me/username", Limit: middleware.Limit{PerMinute: 10, Burst: 5}},
+	{Route: "PATCH /api/v1/me", Limit: middleware.Limit{PerMinute: 10, Burst: 5}},
 	{Route: "POST /api/v1/conversations", Limit: middleware.Limit{PerMinute: 20, Burst: 10}},
 	{Route: "POST /api/v1/conversations/:id/messages", Limit: middleware.Limit{PerMinute: 30, Burst: 20}},
 }

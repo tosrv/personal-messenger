@@ -33,6 +33,12 @@ func (u User) Public() PublicProfile {
 	return PublicProfile{ID: u.ID, Username: u.Username, DisplayName: u.DisplayName, AvatarURL: u.AvatarURL}
 }
 
+// ProfileUpdate holds the fields a user may change; nil means unchanged.
+type ProfileUpdate struct {
+	Username    *string
+	DisplayName *string
+}
+
 // GoogleProfile is the data needed to create or refresh a user from Google.
 type GoogleProfile struct {
 	Subject     string

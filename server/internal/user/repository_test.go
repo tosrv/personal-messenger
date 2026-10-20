@@ -44,8 +44,25 @@ func TestPostgresRepository(t *testing.T) {
 	}
 
 	t.Run("update username conflict", func(t *testing.T) {
-		if _, err := repo.UpdateUsername(ctx, bob.ID, "Alice"); !errors.Is(err, errUsernameTaken) {
+		taken := "Alice"
+		if _, err := repo.UpdateProfile(ctx, bob.ID, ProfileUpdate{Username: &taken}); !errors.Is(err, errUsernameTaken) {
 			t.Errorf("err = %v, want errUsernameTaken", err)
+		}
+	})
+
+	t.Run("edited display name survives the next Google sign-in", func(t *testing.T) {
+		name := "Bobby"
+		if _, err := repo.UpdateProfile(ctx, bob.ID, ProfileUpdate{DisplayName: &name}); err != nil {
+			t.Fatal(err)
+		}
+		u, err := repo.UpdateGoogleProfile(ctx, GoogleProfile{Subject: "g-bob", Email: "b2@example.com", DisplayName: "Bob From Google"})
+		if err != nil || u.DisplayName != "Bobby" || u.Email != "b2@example.com" {
+			t.Errorf("after sign-in: %+v, %v", u, err)
+		}
+		// Alice never edited hers, so Google's name still applies.
+		u, _ = repo.UpdateGoogleProfile(ctx, GoogleProfile{Subject: "g-alice", Email: "a@example.com", DisplayName: "Alice G"})
+		if u.DisplayName != "Alice G" {
+			t.Errorf("unedited name not refreshed: %q", u.DisplayName)
 		}
 	})
 

@@ -29,7 +29,7 @@ export function ProfilePage() {
       <p className="text-muted">@{u.username}</p>
       {isMe ? (
         <Link to="/settings" className="mt-4 text-sm text-accent hover:underline">
-          This is you · Edit username
+          This is you · Edit profile
         </Link>
       ) : (
         <button

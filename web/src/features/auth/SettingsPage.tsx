@@ -1,74 +1,130 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
+import { Avatar } from '../../components/Avatar'
 import { LoadingState } from '../../components/States'
 import { api } from '../../lib/api'
 import { meQueryKey, useMe, type Me } from './api'
 
 const USERNAME_PATTERN = '[a-zA-Z0-9_]{3,32}'
+export const MAX_DISPLAY_NAME_LENGTH = 50
+
+type ProfileChanges = { username?: string; display_name?: string }
+
+/** Mirrors the server: trim and collapse whitespace. */
+const normalizeName = (s: string) => s.trim().replace(/\s+/g, ' ')
 
 export function SettingsPage() {
   const me = useMe()
   if (!me.data) return <LoadingState />
-  return <UsernameForm me={me.data} />
+  return <ProfileForm me={me.data} />
 }
 
-function UsernameForm({ me }: { me: Me }) {
+function ProfileForm({ me }: { me: Me }) {
   const queryClient = useQueryClient()
+  const [displayName, setDisplayName] = useState(me.display_name)
   const [username, setUsername] = useState(me.username)
+
+  // Only send what changed, so an unchanged username is never re-validated.
+  const changes: ProfileChanges = {}
+  if (normalizeName(displayName) !== me.display_name) changes.display_name = displayName
+  if (username.trim() !== me.username) changes.username = username.trim()
+  const dirty = Object.keys(changes).length > 0
+
   const save = useMutation({
-    mutationFn: (value: string) =>
-      api<Me>('/me/username', { method: 'PATCH', json: { username: value } }),
+    mutationFn: (body: ProfileChanges) => api<Me>('/me', { method: 'PATCH', json: body }),
     onSuccess: (updated) => {
       queryClient.setQueryData(meQueryKey, updated)
+      setDisplayName(updated.display_name)
       setUsername(updated.username)
+      // Your own profile page and search results may show the old name.
+      void queryClient.invalidateQueries({ queryKey: ['users'] })
     },
   })
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault()
-    save.mutate(username.trim())
+    if (dirty) save.mutate(changes)
   }
+  const edited = () => save.reset()
+
+  const inputClass =
+    'mt-2 w-full rounded-lg border border-line bg-surface px-3 py-2 outline-none focus:border-accent'
 
   return (
     <section className="mx-auto max-w-xl px-4 py-8">
-      <h1 className="text-xl font-semibold">Account</h1>
+      <h1 className="text-xl font-semibold">Profile</h1>
       <p className="mt-1 text-sm text-muted">
-        Signed in as {me.display_name} ({me.email}). Your email is never shown to other users.
+        Signed in with Google as {me.email}. Your email is never shown to other users.
       </p>
 
-      <form onSubmit={onSubmit} className="mt-6">
-        <label htmlFor="username" className="block text-sm font-medium">
-          Username
-        </label>
-        <p id="username-hint" className="text-sm text-muted">
-          3–32 letters, digits or underscores. Others find you and link to you with it.
-        </p>
-        <div className="mt-2 flex gap-2">
+      <div className="mt-6 flex items-center gap-3">
+        <Avatar name={displayName || me.display_name} src={me.avatar_url} size="lg" />
+        <div className="min-w-0">
+          <p className="truncate text-lg font-medium">
+            {normalizeName(displayName) || me.display_name}
+          </p>
+          <p className="truncate text-muted">@{username.trim() || me.username}</p>
+        </div>
+      </div>
+
+      <form onSubmit={onSubmit} className="mt-6 space-y-5">
+        <div>
+          <label htmlFor="display-name" className="block text-sm font-medium">
+            Name
+          </label>
+          <p id="display-name-hint" className="text-sm text-muted">
+            Shown on your profile and in chats. Up to {MAX_DISPLAY_NAME_LENGTH} characters.
+          </p>
+          <input
+            id="display-name"
+            value={displayName}
+            onChange={(e) => {
+              setDisplayName(e.target.value)
+              edited()
+            }}
+            required
+            maxLength={MAX_DISPLAY_NAME_LENGTH}
+            autoComplete="name"
+            aria-describedby="display-name-hint"
+            className={inputClass}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="username" className="block text-sm font-medium">
+            Username
+          </label>
+          <p id="username-hint" className="text-sm text-muted">
+            3–32 letters, digits or underscores. Others find you and link to you with it.
+          </p>
           <input
             id="username"
             value={username}
             onChange={(e) => {
               setUsername(e.target.value)
-              save.reset()
+              edited()
             }}
             required
             pattern={USERNAME_PATTERN}
             autoComplete="off"
             aria-describedby="username-hint"
-            className="w-full rounded-lg border border-line bg-surface px-3 py-2 outline-none focus:border-accent"
+            className={inputClass}
           />
+        </div>
+
+        <div className="flex items-center gap-3">
           <button
             type="submit"
-            disabled={save.isPending || username.trim() === me.username}
+            disabled={save.isPending || !dirty}
             className="rounded-lg bg-accent px-4 py-2 font-medium text-accent-fg hover:opacity-90 disabled:opacity-50"
           >
-            Save
+            {save.isPending ? 'Saving…' : 'Save changes'}
           </button>
+          <p role="status" aria-live="polite" className="text-sm">
+            {save.isError && <span className="text-danger">{save.error.message}</span>}
+            {save.isSuccess && <span className="text-ok">Profile saved.</span>}
+          </p>
         </div>
-        <p role="status" aria-live="polite" className="mt-2 min-h-6 text-sm">
-          {save.isError && <span className="text-danger">{save.error.message}</span>}
-          {save.isSuccess && <span className="text-ok">Username saved.</span>}
-        </p>
       </form>
     </section>
   )

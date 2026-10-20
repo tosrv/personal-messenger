@@ -6,8 +6,8 @@ import {
   type InfiniteData,
   type QueryClient,
 } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
 import { api } from '../../lib/api'
+import { useOpenChat } from './navigation'
 
 export const MAX_MESSAGE_LENGTH = 4000
 const PAGE_SIZE = 50
@@ -59,13 +59,13 @@ export function useConversation(id: number) {
   })
 }
 
-/** Opens (or creates) the direct conversation with `username` and navigates to it. */
+/** Opens (or creates) the direct conversation with `username` and shows it in /chats. */
 export function useStartConversation() {
-  const navigate = useNavigate()
+  const openChat = useOpenChat()
   return useMutation({
     mutationFn: (username: string) =>
       api<Conversation>('/conversations', { method: 'POST', json: { username } }),
-    onSuccess: (c) => navigate(`/c/${c.id}`),
+    onSuccess: (c) => openChat(c.id),
   })
 }
 

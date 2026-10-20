@@ -2,7 +2,7 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { mockApi } from '../../test/mockApi'
 import { renderWithProviders } from '../../test/render'
-import { ChatPage } from './ChatPage'
+import { ChatsPage } from './ChatsPage'
 
 const me = { id: 1, username: 'tomy', display_name: 'Tomy', email: 't@x.com' }
 const conversation = {
@@ -41,11 +41,14 @@ function renderChat(
       return send(body)
     },
   })
-  renderWithProviders(<ChatPage />, { path: '/c/:id', route: '/c/7' })
+  renderWithProviders(<ChatsPage />, {
+    path: '/chats',
+    route: { pathname: '/chats', state: { conversationId: 7 } },
+  })
   return sends
 }
 
-describe('ChatPage', () => {
+describe('ChatPanel (open chat in /chats)', () => {
   it('shows history and confirms a sent message', async () => {
     renderChat((b) => [
       201,

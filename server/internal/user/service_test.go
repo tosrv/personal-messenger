@@ -59,15 +59,22 @@ func (f *fakeRepo) Create(_ context.Context, p GoogleProfile, username string) (
 	return u, nil
 }
 
-func (f *fakeRepo) UpdateUsername(_ context.Context, id int64, username string) (User, error) {
-	if _, ok := f.find(func(u User) bool { return u.ID != id && strings.EqualFold(u.Username, username) }); ok {
-		return User{}, errUsernameTaken
+func (f *fakeRepo) UpdateProfile(_ context.Context, id int64, p ProfileUpdate) (User, error) {
+	if p.Username != nil {
+		if _, ok := f.find(func(u User) bool { return u.ID != id && strings.EqualFold(u.Username, *p.Username) }); ok {
+			return User{}, errUsernameTaken
+		}
 	}
 	i, ok := f.find(func(u User) bool { return u.ID == id })
 	if !ok {
 		return User{}, apperr.ErrNotFound
 	}
-	f.users[i].Username = username
+	if p.Username != nil {
+		f.users[i].Username = *p.Username
+	}
+	if p.DisplayName != nil {
+		f.users[i].DisplayName = *p.DisplayName
+	}
 	return f.users[i], nil
 }
 
@@ -112,22 +119,59 @@ func TestEnsureGoogleUser_AddsSuffixWhenUsernameTaken(t *testing.T) {
 	}
 }
 
-func TestChangeUsername(t *testing.T) {
+func ptr(s string) *string { return &s }
+
+func TestUpdateProfile_Username(t *testing.T) {
 	repo := &fakeRepo{users: []User{{ID: 1, Username: "alice"}, {ID: 2, Username: "bob"}}}
 	svc := NewService(repo)
 	ctx := context.Background()
 
-	if _, err := svc.ChangeUsername(ctx, 1, "Bob"); !errors.Is(err, apperr.ErrConflict) {
+	if _, err := svc.UpdateProfile(ctx, 1, ProfileUpdate{Username: ptr("Bob")}); !errors.Is(err, apperr.ErrConflict) {
 		t.Errorf("taken: err = %v, want ErrConflict", err)
 	}
 	for _, bad := range []string{"ab", "has space", "admin", strings.Repeat("x", 33)} {
-		if _, err := svc.ChangeUsername(ctx, 1, bad); !errors.Is(err, apperr.ErrInvalidInput) {
+		if _, err := svc.UpdateProfile(ctx, 1, ProfileUpdate{Username: ptr(bad)}); !errors.Is(err, apperr.ErrInvalidInput) {
 			t.Errorf("%q: err = %v, want ErrInvalidInput", bad, err)
 		}
 	}
-	me, err := svc.ChangeUsername(ctx, 1, " @alice_2 ")
+	me, err := svc.UpdateProfile(ctx, 1, ProfileUpdate{Username: ptr(" @alice_2 ")})
 	if err != nil || me.Username != "alice_2" {
 		t.Errorf("valid change: %+v, %v", me, err)
+	}
+}
+
+func TestUpdateProfile_DisplayName(t *testing.T) {
+	repo := &fakeRepo{users: []User{{ID: 1, Username: "alice", DisplayName: "Alice"}}}
+	svc := NewService(repo)
+	ctx := context.Background()
+
+	me, err := svc.UpdateProfile(ctx, 1, ProfileUpdate{DisplayName: ptr("  Alice   in\tWonderland  ")})
+	if err != nil || me.DisplayName != "Alice in Wonderland" || me.Username != "alice" {
+		t.Errorf("normalized: %+v, %v", me, err)
+	}
+	me, err = svc.UpdateProfile(ctx, 1, ProfileUpdate{DisplayName: ptr("Rahmat Tomy 🚀"), Username: ptr("tomy")})
+	if err != nil || me.DisplayName != "Rahmat Tomy 🚀" || me.Username != "tomy" {
+		t.Errorf("both fields: %+v, %v", me, err)
+	}
+
+	bad := map[string]string{
+		"empty":         "   ",
+		"too long":      strings.Repeat("é", maxDisplayNameLen+1),
+		"control char":  "Al\x07ice",
+		"bidi override": "Alice" + string(rune(0x202E)) + "gnp.exe", // right-to-left override
+		"zero-width":    "Ali" + string(rune(0x200B)) + "ce",        // zero-width space
+		"invalid utf8":  "\xff",
+	}
+	for name, v := range bad {
+		if _, err := svc.UpdateProfile(ctx, 1, ProfileUpdate{DisplayName: ptr(v)}); !errors.Is(err, apperr.ErrInvalidInput) {
+			t.Errorf("%s: err = %v, want ErrInvalidInput", name, err)
+		}
+	}
+	if _, err := svc.UpdateProfile(ctx, 1, ProfileUpdate{DisplayName: ptr(strings.Repeat("é", maxDisplayNameLen))}); err != nil {
+		t.Errorf("max length rejected: %v", err)
+	}
+	if _, err := svc.UpdateProfile(ctx, 1, ProfileUpdate{}); !errors.Is(err, apperr.ErrInvalidInput) {
+		t.Errorf("empty update: err = %v", err)
 	}
 }
 

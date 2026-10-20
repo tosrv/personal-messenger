@@ -21,7 +21,7 @@ func NewHandler(svc *Service) *Handler {
 // Register mounts routes that require a session; rg must use auth.RequireSession.
 func (h *Handler) Register(rg *gin.RouterGroup) {
 	rg.GET("/me", h.me)
-	rg.PATCH("/me/username", h.changeUsername)
+	rg.PATCH("/me", h.updateProfile)
 	rg.GET("/users/search", h.search)
 	rg.GET("/users/:username", h.getProfile)
 }
@@ -36,16 +36,20 @@ func (h *Handler) me(c *gin.Context) {
 	c.JSON(http.StatusOK, me)
 }
 
-func (h *Handler) changeUsername(c *gin.Context) {
+// updateProfile accepts {"username"?, "display_name"?}; omitted fields are kept.
+func (h *Handler) updateProfile(c *gin.Context) {
 	var body struct {
-		Username string `json:"username"`
+		Username    *string `json:"username"`
+		DisplayName *string `json:"display_name"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		httpx.Error(c, apperr.ErrInvalidInput)
 		return
 	}
 	userID, _ := httpx.UserID(c)
-	me, err := h.svc.ChangeUsername(c.Request.Context(), userID, body.Username)
+	me, err := h.svc.UpdateProfile(c.Request.Context(), userID, ProfileUpdate{
+		Username: body.Username, DisplayName: body.DisplayName,
+	})
 	if err != nil {
 		httpx.Error(c, err)
 		return

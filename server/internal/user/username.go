@@ -6,6 +6,8 @@ import (
 	"math/big"
 	"regexp"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 const (
@@ -62,4 +64,28 @@ func usernameCandidate(base string, attempt int) string {
 	}
 	n, _ := rand.Int(rand.Reader, big.NewInt(9000))
 	return fmt.Sprintf("%s%d", base, n.Int64()+1000)
+}
+
+const maxDisplayNameLen = 50 // characters
+
+// normalizeDisplayName trims the name and collapses runs of whitespace, then
+// checks it is 1-50 printable characters (no control or invisible format
+// characters that could be used to spoof or break layouts).
+func normalizeDisplayName(raw string) (string, error) {
+	if !utf8.ValidString(raw) {
+		return "", fmt.Errorf("display name is not valid text")
+	}
+	name := strings.Join(strings.Fields(raw), " ")
+	if name == "" {
+		return "", fmt.Errorf("display name cannot be empty")
+	}
+	if n := utf8.RuneCountInString(name); n > maxDisplayNameLen {
+		return "", fmt.Errorf("display name must be at most %d characters", maxDisplayNameLen)
+	}
+	for _, r := range name {
+		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
+			return "", fmt.Errorf("display name contains invalid characters")
+		}
+	}
+	return name, nil
 }

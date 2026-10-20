@@ -27,7 +27,7 @@ type Repository interface {
 	GetByUsername(ctx context.Context, username string) (User, error)
 	UpdateGoogleProfile(ctx context.Context, p GoogleProfile) (User, error)
 	Create(ctx context.Context, p GoogleProfile, username string) (User, error)
-	UpdateUsername(ctx context.Context, id int64, username string) (User, error)
+	UpdateProfile(ctx context.Context, id int64, p ProfileUpdate) (User, error)
 	SearchByUsernamePrefix(ctx context.Context, prefix string, excludeID int64, limit int) ([]User, error)
 }
 
@@ -83,12 +83,27 @@ func (s *Service) Me(ctx context.Context, userID int64) (Me, error) {
 	return Me{PublicProfile: u.Public(), Email: u.Email}, nil
 }
 
-func (s *Service) ChangeUsername(ctx context.Context, userID int64, username string) (Me, error) {
-	username = strings.TrimPrefix(strings.TrimSpace(username), "@")
-	if err := validateUsername(username); err != nil {
-		return Me{}, fmt.Errorf("%w: %s", apperr.ErrInvalidInput, err)
+// UpdateProfile changes the username and/or display name. Fields left nil
+// are unchanged; at least one must be set.
+func (s *Service) UpdateProfile(ctx context.Context, userID int64, p ProfileUpdate) (Me, error) {
+	if p.Username == nil && p.DisplayName == nil {
+		return Me{}, fmt.Errorf("%w: nothing to update", apperr.ErrInvalidInput)
 	}
-	u, err := s.repo.UpdateUsername(ctx, userID, username)
+	if p.Username != nil {
+		username := strings.TrimPrefix(strings.TrimSpace(*p.Username), "@")
+		if err := validateUsername(username); err != nil {
+			return Me{}, fmt.Errorf("%w: %s", apperr.ErrInvalidInput, err)
+		}
+		p.Username = &username
+	}
+	if p.DisplayName != nil {
+		name, err := normalizeDisplayName(*p.DisplayName)
+		if err != nil {
+			return Me{}, fmt.Errorf("%w: %s", apperr.ErrInvalidInput, err)
+		}
+		p.DisplayName = &name
+	}
+	u, err := s.repo.UpdateProfile(ctx, userID, p)
 	if errors.Is(err, errUsernameTaken) {
 		return Me{}, fmt.Errorf("%w: username is already taken", apperr.ErrConflict)
 	}

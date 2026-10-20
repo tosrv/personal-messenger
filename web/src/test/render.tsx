@@ -3,10 +3,16 @@ import { render } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
-/** Renders ui at `path` inside a fresh QueryClient (no retries) and router. */
+/**
+ * Renders ui at `path` inside a fresh QueryClient (no retries) and router.
+ * `route` may carry history state, e.g. { pathname: "/chats", state: {...} }.
+ */
 export function renderWithProviders(
   ui: ReactElement,
-  { path = '/', route = '/' }: { path?: string; route?: string } = {},
+  {
+    path = '/',
+    route = '/',
+  }: { path?: string; route?: string | { pathname: string; state?: unknown } } = {},
 ) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(

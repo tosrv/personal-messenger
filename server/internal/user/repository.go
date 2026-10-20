@@ -35,10 +35,13 @@ func (r *PostgresRepository) GetByUsername(ctx context.Context, username string)
 }
 
 // UpdateGoogleProfile refreshes Google-provided fields for an existing account.
-// Accounts are matched by google_sub, never by email (PRD §6.1).
+// Accounts are matched by google_sub, never by email (PRD §6.1). A display
+// name the user has edited is kept.
 func (r *PostgresRepository) UpdateGoogleProfile(ctx context.Context, p GoogleProfile) (User, error) {
 	return r.getOne(ctx,
-		`UPDATE users SET email = $2, display_name = $3, avatar_url = nullif($4, ''), updated_at = now()
+		`UPDATE users SET email = $2,
+		     display_name = CASE WHEN display_name_customized THEN display_name ELSE $3 END,
+		     avatar_url = nullif($4, ''), updated_at = now()
 		 WHERE google_sub = $1
 		 RETURNING `+userColumns,
 		p.Subject, p.Email, p.DisplayName, p.AvatarURL)
@@ -61,10 +64,18 @@ func (r *PostgresRepository) Create(ctx context.Context, p GoogleProfile, userna
 	return u, err
 }
 
-func (r *PostgresRepository) UpdateUsername(ctx context.Context, id int64, username string) (User, error) {
+// UpdateProfile changes the fields that are set (nil = keep) in one statement.
+// Setting a display name marks it as customized so sign-in keeps it.
+func (r *PostgresRepository) UpdateProfile(ctx context.Context, id int64, p ProfileUpdate) (User, error) {
 	u, err := r.getOne(ctx,
-		`UPDATE users SET username = $2, updated_at = now() WHERE id = $1 RETURNING `+userColumns,
-		id, username)
+		`UPDATE users SET
+		     username = coalesce($2, username),
+		     display_name = coalesce($3, display_name),
+		     display_name_customized = display_name_customized OR $3::text IS NOT NULL,
+		     updated_at = now()
+		 WHERE id = $1
+		 RETURNING `+userColumns,
+		id, p.Username, p.DisplayName)
 	if constraintViolated(err) == "users_username_key" {
 		return User{}, errUsernameTaken
 	}

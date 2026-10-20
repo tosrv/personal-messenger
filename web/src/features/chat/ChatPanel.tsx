@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { Avatar } from '../../components/Avatar'
 import { ErrorState, LoadingState } from '../../components/States'
 import { ApiError } from '../../lib/api'
@@ -11,35 +11,55 @@ import { Composer } from './Composer'
 /** A message the server has not confirmed yet (PRD §6.5). */
 type Pending = { clientMessageId: string; body: string; status: 'sending' | 'failed' }
 
-export function ChatPage() {
-  const id = Number(useParams().id)
-  const conversation = useConversation(id)
+/** The right-hand pane of /chats: one conversation's messages and composer. */
+export function ChatPanel({
+  conversationId,
+  onBack,
+}: {
+  conversationId: number
+  onBack: () => void
+}) {
+  const conversation = useConversation(conversationId)
 
   if (conversation.isPending) return <LoadingState />
   if (conversation.isError) {
     if (conversation.error instanceof ApiError && conversation.error.status === 404) {
-      return <p className="py-16 text-center text-muted">Conversation not found.</p>
+      return (
+        <div className="py-16 text-center text-muted">
+          <p>Conversation not found.</p>
+          <button type="button" onClick={onBack} className="mt-3 text-accent hover:underline">
+            Back to chats
+          </button>
+        </div>
+      )
     }
     return <ErrorState error={conversation.error} onRetry={() => conversation.refetch()} />
   }
 
   const { peer } = conversation.data
   return (
-    <section className="mx-auto flex h-full max-w-3xl flex-col">
+    <section className="flex h-full flex-col" aria-label={`Chat with ${peer.display_name}`}>
       <header className="flex items-center gap-3 border-b border-line px-4 py-2">
-        <Link
-          to="/conversations"
-          className="text-sm text-muted hover:text-fg"
+        {/* On wide screens the list stays visible, so "back" is only needed on phones. */}
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-muted hover:text-fg md:hidden"
           aria-label="Back to chats"
         >
           ←
-        </Link>
+        </button>
         <Link to={`/u/${peer.username}`} className="flex items-center gap-2 hover:underline">
           <Avatar name={peer.display_name} src={peer.avatar_url} size="sm" />
           <span className="font-medium">{peer.display_name}</span>
         </Link>
       </header>
-      <Thread conversationId={id} lastReadMessageId={conversation.data.last_read_message_id} />
+      {/* key: a different chat gets fresh pending/scroll state. */}
+      <Thread
+        key={conversationId}
+        conversationId={conversationId}
+        lastReadMessageId={conversation.data.last_read_message_id}
+      />
     </section>
   )
 }
@@ -199,7 +219,7 @@ function Bubble({
   return (
     <li className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
       <p
-        className={`max-w-[80%] rounded-2xl px-3 py-2 break-words whitespace-pre-wrap ${
+        className={`max-w-[80%] rounded-2xl px-3 py-2 wrap-break-word whitespace-pre-wrap ${
           mine ? 'bg-accent text-accent-fg' : 'bg-surface'
         } ${faded ? 'opacity-60' : ''}`}
       >

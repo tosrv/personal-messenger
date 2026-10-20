@@ -12,14 +12,14 @@ export function Layout() {
       {/* Fixed-height shell: pages scroll inside <main>, so the chat view can fill it. */}
       <div className="flex h-dvh flex-col">
         <header className="border-b border-line">
-          <nav className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3 sm:gap-4">
+          <nav className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-3 sm:gap-4">
             <NavLink to="/" className="mr-auto font-semibold">
               Messenger
             </NavLink>
             <NavLink to="/search" className={navLink}>
               Search
             </NavLink>
-            <NavLink to="/conversations" className={navLink}>
+            <NavLink to="/chats" className={navLink}>
               Chats
             </NavLink>
             <UserMenu />
