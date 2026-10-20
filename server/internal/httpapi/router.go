@@ -12,17 +12,21 @@ import (
 
 	"github.com/tosrv/personal-messenger/server/internal/auth"
 	"github.com/tosrv/personal-messenger/server/internal/config"
+	"github.com/tosrv/personal-messenger/server/internal/conversation"
+	"github.com/tosrv/personal-messenger/server/internal/message"
 	"github.com/tosrv/personal-messenger/server/internal/middleware"
 	"github.com/tosrv/personal-messenger/server/internal/user"
 )
 
 // Deps are the services the router needs, built once in main.
 type Deps struct {
-	Pool     *pgxpool.Pool
-	Logger   *slog.Logger
-	Sessions *auth.SessionStore
-	Auth     *auth.Handler // nil when Google OAuth is not configured
-	Users    *user.Service
+	Pool          *pgxpool.Pool
+	Logger        *slog.Logger
+	Sessions      *auth.SessionStore
+	Auth          *auth.Handler // nil when Google OAuth is not configured
+	Users         *user.Service
+	Conversations *conversation.Service
+	Messages      *message.Service
 }
 
 func NewRouter(cfg config.Config, d Deps) *gin.Engine {
@@ -65,7 +69,8 @@ func NewRouter(cfg config.Config, d Deps) *gin.Engine {
 
 	private := api.Group("", auth.RequireSession(d.Sessions))
 	user.NewHandler(d.Users).Register(private)
-	// Milestone 3: /conversations, /conversations/:id/messages
+	conversation.NewHandler(d.Conversations).Register(private)
+	message.NewHandler(d.Messages).Register(private)
 	// Milestone 4: /ws
 
 	return r

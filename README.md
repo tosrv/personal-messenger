@@ -128,7 +128,7 @@ Schedule `backup.sh` with cron and copy backups off the server.
 ## Roadmap
 
 - [x] M1 Foundation — repo layout, Gin, Vite, Postgres, health check, first migration
-- [ ] M2 Auth & profiles — Google OIDC, sessions, usernames, search
-- [ ] M3 Messaging API — conversations, messages, pagination, membership checks
+- [x] M2 Auth & profiles — Google OIDC, sessions, usernames, search
+- [x] M3 Messaging API — conversations, messages, pagination, membership checks (new messages polled every 4 s until M4)
 - [ ] M4 Real-time — WebSocket auth, hub, ack, reconnect + sync, dedupe
 - [ ] M5 Production readiness — rate limiting, tests, HTTPS deploy, backups, portfolio link

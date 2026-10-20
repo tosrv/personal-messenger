@@ -2,6 +2,8 @@ import { createBrowserRouter, Outlet } from 'react-router-dom'
 import { LoginPage } from '../features/auth/LoginPage'
 import { RequireAuth } from '../features/auth/RequireAuth'
 import { SettingsPage } from '../features/auth/SettingsPage'
+import { ChatPage } from '../features/chat/ChatPage'
+import { ConversationsPage } from '../features/chat/ConversationsPage'
 import { HomePage } from '../features/system/HomePage'
 import { ProfilePage } from '../features/users/ProfilePage'
 import { SearchPage } from '../features/users/SearchPage'
@@ -24,12 +26,8 @@ export const router = createBrowserRouter([
           { path: '/search', element: <SearchPage /> },
           { path: '/u/:username', element: <ProfilePage /> },
           { path: '/settings', element: <SettingsPage /> },
-          {
-            path: '/conversations',
-            element: (
-              <p className="py-16 text-center text-muted">Conversations arrive in Milestone 3.</p>
-            ),
-          },
+          { path: '/conversations', element: <ConversationsPage /> },
+          { path: '/c/:id', element: <ChatPage /> },
         ],
       },
       { path: '*', element: <p className="py-16 text-center text-muted">Page not found.</p> },

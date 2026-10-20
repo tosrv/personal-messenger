@@ -12,8 +12,10 @@ import (
 
 	"github.com/tosrv/personal-messenger/server/internal/auth"
 	"github.com/tosrv/personal-messenger/server/internal/config"
+	"github.com/tosrv/personal-messenger/server/internal/conversation"
 	"github.com/tosrv/personal-messenger/server/internal/database"
 	"github.com/tosrv/personal-messenger/server/internal/httpapi"
+	"github.com/tosrv/personal-messenger/server/internal/message"
 	"github.com/tosrv/personal-messenger/server/internal/user"
 )
 
@@ -44,6 +46,8 @@ func main() {
 
 	sessions := auth.NewSessionStore(pool)
 	users := user.NewService(user.NewPostgresRepository(pool))
+	conversations := conversation.NewService(conversation.NewPostgresRepository(pool), users)
+	messages := message.NewService(message.NewPostgresRepository(pool), conversations)
 
 	var authHandler *auth.Handler
 	if cfg.GoogleClientID != "" {
@@ -67,7 +71,8 @@ func main() {
 	srv := &http.Server{
 		Addr: ":" + cfg.Port,
 		Handler: httpapi.NewRouter(cfg, httpapi.Deps{
-			Pool: pool, Logger: logger, Sessions: sessions, Auth: authHandler, Users: users,
+			Pool: pool, Logger: logger, Sessions: sessions, Auth: authHandler,
+			Users: users, Conversations: conversations, Messages: messages,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
