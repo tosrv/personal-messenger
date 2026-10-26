@@ -53,6 +53,24 @@ func (s *SessionStore) UserID(ctx context.Context, token string) (int64, error) 
 	return id, err
 }
 
+// ExtendIfAging pushes the expiry of a valid session to SessionTTL from now
+// once less than half of it is left, so active users (and guests, who have
+// no other way back in) are never locked out. It reports the new expiry, or
+// the zero time if nothing changed.
+func (s *SessionStore) ExtendIfAging(ctx context.Context, token string) (time.Time, error) {
+	var expires time.Time
+	err := s.db.QueryRow(ctx,
+		`UPDATE sessions SET expires_at = now() + make_interval(secs => $2)
+		 WHERE token_hash = $1 AND expires_at > now()
+		   AND expires_at < now() + make_interval(secs => $2 / 2)
+		 RETURNING expires_at`,
+		hashToken(token), SessionTTL.Seconds()).Scan(&expires)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return time.Time{}, nil
+	}
+	return expires, err
+}
+
 func (s *SessionStore) Delete(ctx context.Context, token string) error {
 	_, err := s.db.Exec(ctx, `DELETE FROM sessions WHERE token_hash = $1`, hashToken(token))
 	return err

@@ -110,6 +110,49 @@ func (r *PostgresRepository) DeleteAbandonedGuests(ctx context.Context, olderTha
 	return tag.RowsAffected(), err
 }
 
+// DeleteInactiveGuests removes guests whose chats have had no message for
+// inactiveFor, together with those chats (both sides' messages) and their
+// sessions. Guests cannot sign back in once their session is gone, so their
+// data has no owner left to manage it (ADR 0008).
+func (r *PostgresRepository) DeleteInactiveGuests(ctx context.Context, inactiveFor time.Duration) (int64, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
+
+	rows, err := tx.Query(ctx,
+		`SELECT u.id FROM users u
+		 WHERE u.is_guest
+		   AND u.created_at < now() - make_interval(secs => $1)
+		   AND NOT EXISTS (
+		       SELECT 1 FROM conversation_members cm
+		       JOIN messages m ON m.conversation_id = cm.conversation_id
+		       WHERE cm.user_id = u.id AND m.created_at >= now() - make_interval(secs => $1))
+		 FOR UPDATE OF u`,
+		inactiveFor.Seconds())
+	if err != nil {
+		return 0, err
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[int64])
+	if err != nil || len(ids) == 0 {
+		return 0, err
+	}
+	// Guests only ever have chats with the owner, so their chats go entirely;
+	// messages and memberships follow by ON DELETE CASCADE.
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM conversations WHERE id IN (
+		     SELECT conversation_id FROM conversation_members WHERE user_id = ANY($1))`,
+		ids); err != nil {
+		return 0, err
+	}
+	tag, err := tx.Exec(ctx, `DELETE FROM users WHERE id = ANY($1)`, ids)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), tx.Commit(ctx)
+}
+
 func (r *PostgresRepository) SearchByUsernamePrefix(ctx context.Context, prefix string, excludeID int64, limit int) ([]User, error) {
 	rows, err := r.db.Query(ctx,
 		`SELECT `+userColumns+` FROM users

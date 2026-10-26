@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"log/slog"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -12,7 +13,8 @@ import (
 
 // RequireSession rejects requests without a valid session cookie and puts
 // the user ID on the context for handlers (read it with httpx.UserID).
-func RequireSession(sessions *SessionStore) gin.HandlerFunc {
+// Sessions in use are extended (sliding expiry), and the cookie with them.
+func RequireSession(sessions *SessionStore, secureCookies bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token, err := c.Cookie(SessionCookie)
 		if err != nil || token == "" {
@@ -26,6 +28,12 @@ func RequireSession(sessions *SessionStore) gin.HandlerFunc {
 			}
 			httpx.Error(c, err)
 			return
+		}
+		// At most one extra write per session per half-TTL; failure only logs.
+		if expires, err := sessions.ExtendIfAging(c.Request.Context(), token); err != nil {
+			slog.ErrorContext(c.Request.Context(), "extend session", "err", err)
+		} else if !expires.IsZero() {
+			writeCookie(c, SessionCookie, token, "/", int(time.Until(expires).Seconds()), secureCookies)
 		}
 		httpx.SetUserID(c, userID)
 		c.Next()

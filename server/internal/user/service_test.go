@@ -92,6 +92,10 @@ func (f *fakeRepo) DeleteAbandonedGuests(context.Context, time.Duration) (int64,
 	return 0, nil
 }
 
+func (f *fakeRepo) DeleteInactiveGuests(context.Context, time.Duration) (int64, error) {
+	return 0, nil
+}
+
 func (f *fakeRepo) SearchByUsernamePrefix(_ context.Context, prefix string, excludeID int64, _ int) ([]User, error) {
 	f.gotPrefix, f.gotExcluded = prefix, excludeID
 	var out []User

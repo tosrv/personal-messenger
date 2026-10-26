@@ -316,6 +316,25 @@ describe('guests in chats', () => {
     expect(screen.queryByLabelText('Search chats or people')).not.toBeInTheDocument()
   })
 
+  it('tells guests how long their chat is kept', async () => {
+    mockApi({
+      'GET /me': () => [
+        200,
+        { id: 9, username: 'guest_1234', display_name: 'Budi', is_guest: true },
+      ],
+      'GET /conversations': () => [200, { conversations: [conversations[0]] }],
+      'GET /conversations/7': () => [200, conversations[0]],
+      'GET /conversations/7/messages': () => [200, { messages: [], has_more: false }],
+    })
+    renderWithProviders(<ChatsPage />, {
+      path: '/chats',
+      route: { pathname: '/chats', state: { conversationId: 7 } },
+    })
+    expect(
+      await screen.findByText(/deleted after 90 days without new messages/),
+    ).toBeInTheDocument()
+  })
+
   it('marks guest contacts with a badge', async () => {
     mockApi({
       'GET /me': () => [200, me],

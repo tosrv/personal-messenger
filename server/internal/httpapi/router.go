@@ -105,13 +105,13 @@ func NewRouter(cfg config.Config, d Deps) *gin.Engine {
 	}
 
 	// limit runs after RequireSession so it can count per user.
-	private := api.Group("", auth.RequireSession(d.Sessions), limit)
+	private := api.Group("", auth.RequireSession(d.Sessions, cfg.IsProduction()), limit)
 	user.NewHandler(d.Users).Register(private)
 	conversation.NewHandler(d.Conversations).Register(private)
 	message.NewHandler(d.Messages).Register(private)
 
 	// Real-time events (server → client only, see docs/realtime.md).
-	ws := r.Group("", auth.RequireSession(d.Sessions))
+	ws := r.Group("", auth.RequireSession(d.Sessions, cfg.IsProduction()))
 	realtime.NewHandler(d.Hub, cfg.AllowedOrigins, sessionStillValid(d.Sessions), d.Logger).Register(ws)
 
 	// Production image: the same server also serves the frontend (one origin, ADR 0002).

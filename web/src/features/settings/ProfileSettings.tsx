@@ -4,6 +4,7 @@ import { Avatar } from '../../components/Avatar'
 import { LoadingState } from '../../components/States'
 import { api } from '../../lib/api'
 import { meQueryKey, useMe, type Me } from '../auth/api'
+import { GUEST_RETENTION_NOTE } from '../auth/guestPolicy'
 import { SettingsPanel } from './SettingsPanel'
 
 const USERNAME_PATTERN = '[a-zA-Z0-9_]{3,32}'
@@ -24,7 +25,7 @@ export function ProfileSettings() {
         me.data.is_guest ? (
           <>
             You are chatting as a guest. This account only works in this browser; signing out or
-            clearing site data ends it.
+            clearing site data ends it. {GUEST_RETENTION_NOTE}
           </>
         ) : (
           <>Signed in with Google as {me.data.email}. Your email is never shown to other users.</>

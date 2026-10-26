@@ -107,8 +107,12 @@ func main() {
 	logger.Info("server stopped")
 }
 
-// abandonedGuestAge is how long a guest who never sent a message is kept.
-const abandonedGuestAge = 7 * 24 * time.Hour
+// Guest retention (ADR 0008): guests who never wrote are removed after a
+// week; any guest chat is removed after 90 days without a new message.
+const (
+	abandonedGuestAge = 7 * 24 * time.Hour
+	inactiveGuestAge  = 90 * 24 * time.Hour
+)
 
 // cleanUp removes expired sessions and abandoned guest accounts every hour.
 func cleanUp(ctx context.Context, sessions *auth.SessionStore, users *user.Service, logger *slog.Logger) {
@@ -124,6 +128,11 @@ func cleanUp(ctx context.Context, sessions *auth.SessionStore, users *user.Servi
 			logger.Error("clean abandoned guests", "err", err)
 		} else if n > 0 {
 			logger.Info("cleaned abandoned guests", "count", n)
+		}
+		if n, err := users.DeleteInactiveGuests(ctx, inactiveGuestAge); err != nil && ctx.Err() == nil {
+			logger.Error("clean inactive guests", "err", err)
+		} else if n > 0 {
+			logger.Info("cleaned inactive guests", "count", n)
 		}
 		select {
 		case <-ctx.Done():

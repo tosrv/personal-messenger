@@ -32,6 +32,7 @@ type Repository interface {
 	SearchByUsernamePrefix(ctx context.Context, prefix string, excludeID int64, limit int) ([]User, error)
 	CreateGuest(ctx context.Context, displayName, username string) (User, error)
 	DeleteAbandonedGuests(ctx context.Context, olderThan time.Duration) (int64, error)
+	DeleteInactiveGuests(ctx context.Context, inactiveFor time.Duration) (int64, error)
 }
 
 // Service holds user business rules. It knows nothing about HTTP.
@@ -96,6 +97,11 @@ func (s *Service) CreateGuest(ctx context.Context, displayName string) (int64, e
 		return u.ID, nil
 	}
 	return 0, fmt.Errorf("create guest: no free username")
+}
+
+// DeleteInactiveGuests removes guests (and their chats) with no message for inactiveFor.
+func (s *Service) DeleteInactiveGuests(ctx context.Context, inactiveFor time.Duration) (int64, error) {
+	return s.repo.DeleteInactiveGuests(ctx, inactiveFor)
 }
 
 // IsGuest reports whether userID is a guest account.

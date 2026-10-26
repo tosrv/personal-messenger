@@ -1,6 +1,7 @@
 import { UserRound } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useGuestSignIn } from './api'
+import { GUEST_RETENTION_NOTE } from './guestPolicy'
 
 const MAX_NAME = 50
 
@@ -25,7 +26,7 @@ export function GuestSignIn({ ownerUsername }: { ownerUsername: string }) {
       </h2>
       <p className="text-sm text-muted">
         No account needed. You can message @{ownerUsername} only, and the chat stays in this
-        browser.
+        browser. {GUEST_RETENTION_NOTE}
       </p>
       <label htmlFor="guest-name" className="sr-only">
         Your name

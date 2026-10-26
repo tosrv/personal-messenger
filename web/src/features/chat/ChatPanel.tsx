@@ -8,6 +8,7 @@ import { ErrorState, LoadingState } from '../../components/States'
 import { ApiError } from '../../lib/api'
 import { dayKey, formatDayLabel, formatTime } from '../../lib/time'
 import { useMe } from '../auth/api'
+import { GUEST_RETENTION_NOTE } from '../auth/guestPolicy'
 import {
   useConversation,
   useDeleteChat,
@@ -282,6 +283,11 @@ function Thread({
           </>
         )}
       </div>
+      {me.data?.is_guest && (
+        <p className="border-t border-line px-4 py-1.5 text-center text-xs text-muted">
+          {GUEST_RETENTION_NOTE}
+        </p>
+      )}
       <Composer onSend={onSend} />
     </>
   )

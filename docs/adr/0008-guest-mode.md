@@ -17,7 +17,8 @@ Add a **guest** account type, enabled by setting `OWNER_USERNAME`:
 - **Guests can only chat with the owner, in both directions.** A guest cannot start a chat with anyone else, and nobody but the owner can start a chat with a guest. Guests cannot search users, and they do not appear in search results.
 - Guests can change their display name but not their username. Usernames starting with `guest` are reserved for guests, so nobody can impersonate one.
 - Creating guests is rate-limited to 3 per minute per IP.
-- Guests who never send a message are deleted after 7 days. Guests who did write are kept, so the owner keeps the conversation.
+- **Retention.** Guests who never send a message are deleted after 7 days. Any guest whose chat has had no new message for **90 days** is deleted together with that chat (both sides' messages). A guest cannot sign back in once their session is gone, so nobody would be left to manage that data. Guests are told this on the sign-in form, in the chat and in settings.
+- **Sliding sessions** (for every account): a session in use is extended to the full 30 days once less than half is left, so active guests are not locked out after 30 days.
 - `GET /api/v1/config` tells the web app whether guest mode is on and who the owner is.
 - **No upgrade path:** a guest account lives only in the browser that holds its cookie. Converting a guest into a Google account can be added later.
 

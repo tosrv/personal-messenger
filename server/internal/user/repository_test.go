@@ -146,3 +146,59 @@ func TestGuests(t *testing.T) {
 		}
 	})
 }
+
+func TestDeleteInactiveGuests(t *testing.T) {
+	pool := dbtest.New(t)
+	repo := NewPostgresRepository(pool)
+	ctx := context.Background()
+
+	owner, _ := repo.Create(ctx, GoogleProfile{Subject: "g-owner", Email: "o@example.com", DisplayName: "Owner"}, "tomy")
+	stale, _ := repo.CreateGuest(ctx, "Stale", "guest_1111")
+	active, _ := repo.CreateGuest(ctx, "Active", "guest_2222")
+	if _, err := pool.Exec(ctx, `UPDATE users SET created_at = now() - interval '200 days' WHERE is_guest`); err != nil {
+		t.Fatal(err)
+	}
+
+	chat := func(guest User, lastMessageAge string) int64 {
+		t.Helper()
+		var conv int64
+		if err := pool.QueryRow(ctx, `INSERT INTO conversations (direct_key) VALUES ($1) RETURNING id`, guest.Username).Scan(&conv); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, `INSERT INTO conversation_members (conversation_id, user_id) VALUES ($1, $2), ($1, $3)`,
+			conv, owner.ID, guest.ID); err != nil {
+			t.Fatal(err)
+		}
+		// One message from each side, the newest lastMessageAge ago.
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO messages (conversation_id, sender_id, client_message_id, body, created_at) VALUES
+			  ($1, $2, gen_random_uuid(), 'hello', now() - $4::interval - interval '1 day'),
+			  ($1, $3, gen_random_uuid(), 'reply', now() - $4::interval)`,
+			conv, guest.ID, owner.ID, lastMessageAge); err != nil {
+			t.Fatal(err)
+		}
+		return conv
+	}
+	staleConv := chat(stale, "120 days")
+	activeConv := chat(active, "10 days")
+
+	n, err := repo.DeleteInactiveGuests(ctx, 90*24*time.Hour)
+	if err != nil || n != 1 {
+		t.Fatalf("deleted %d, %v; want 1", n, err)
+	}
+	if _, err := repo.GetByID(ctx, stale.ID); !errors.Is(err, apperr.ErrNotFound) {
+		t.Errorf("stale guest still exists: %v", err)
+	}
+	var left int
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM conversations WHERE id = $1`, staleConv).Scan(&left)
+	if left != 0 {
+		t.Error("stale guest's chat was kept")
+	}
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM messages WHERE conversation_id = $1`, activeConv).Scan(&left)
+	if left != 2 {
+		t.Errorf("active guest's chat lost messages: %d left", left)
+	}
+	if _, err := repo.GetByID(ctx, owner.ID); err != nil {
+		t.Errorf("owner was affected: %v", err)
+	}
+}
