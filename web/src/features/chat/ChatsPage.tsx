@@ -5,7 +5,7 @@ import { useSidebarCollapsed } from '../../lib/sidebar'
 import { ChatPanel } from './ChatPanel'
 import { ChatSearchResults } from './ChatSearchResults'
 import { ConversationList } from './ConversationList'
-import { useCloseChat, useOpenChat, useOpenConversationId } from './navigation'
+import { useCloseChat, useOpenChat, useOpenConversationId, useResetChats } from './navigation'
 
 /**
  * WhatsApp Web–style chats: the list and the open chat side by side on wide
@@ -17,6 +17,7 @@ export function ChatsPage() {
   const openId = useOpenConversationId()
   const openChat = useOpenChat()
   const closeChat = useCloseChat()
+  const resetChats = useResetChats()
   const [query, setQuery] = useState('')
   const searching = query.trim().length > 0
   const { collapsed, toggle } = useSidebarCollapsed('chats')
@@ -102,7 +103,7 @@ export function ChatsPage() {
 
       <div className={`min-w-0 flex-1 ${openId ? '' : 'hidden md:block'}`}>
         {openId ? (
-          <ChatPanel conversationId={openId} onBack={closeChat} />
+          <ChatPanel conversationId={openId} onBack={closeChat} onDeleted={resetChats} />
         ) : (
           <div className="flex h-full items-center justify-center p-8 text-center text-muted">
             Select a conversation, or search for someone to start chatting.

@@ -104,6 +104,27 @@ export function useSendMessage(conversationId: number) {
   })
 }
 
+/**
+ * Deletes the chat for the current user only ("delete for me"): it leaves
+ * their list and its history is hidden from them; the other person keeps it.
+ */
+export function useDeleteChat(conversationId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => api<void>(`/conversations/${conversationId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: messagesKey(conversationId) })
+      queryClient.removeQueries({ queryKey: conversationKey(conversationId) })
+      queryClient.setQueryData<{ conversations: Conversation[] }>(
+        conversationsKey,
+        (data) =>
+          data && { conversations: data.conversations.filter((c) => c.id !== conversationId) },
+      )
+      void queryClient.invalidateQueries({ queryKey: conversationsKey, exact: true })
+    },
+  })
+}
+
 export function useMarkRead(conversationId: number) {
   const queryClient = useQueryClient()
   return useMutation({

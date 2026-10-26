@@ -14,6 +14,7 @@ type fakeRepo struct {
 	gotLimit   int
 	gotBefore  int64
 	gotAfter   int64
+	gotFloor   int64
 	usedBefore bool
 }
 
@@ -23,8 +24,8 @@ func (f *fakeRepo) Create(_ context.Context, m Message) (Message, bool, error) {
 	return m, true, nil
 }
 
-func (f *fakeRepo) ListBefore(_ context.Context, _, before int64, limit int) (Page, error) {
-	f.usedBefore, f.gotBefore, f.gotLimit = true, before, limit
+func (f *fakeRepo) ListBefore(_ context.Context, _, before, floor int64, limit int) (Page, error) {
+	f.usedBefore, f.gotBefore, f.gotFloor, f.gotLimit = true, before, floor, limit
 	return Page{}, nil
 }
 
@@ -33,8 +34,15 @@ func (f *fakeRepo) ListAfter(_ context.Context, _, after int64, limit int) (Page
 	return Page{}, nil
 }
 
-// members allows only (conversation 1, user 1).
+// members allows only (conversation 1, user 1), who cleared history up to id 5.
 type members struct{}
+
+func (members) VisibleFrom(_ context.Context, convID, userID int64) (int64, error) {
+	if convID == 1 && userID == 1 {
+		return 5, nil
+	}
+	return 0, apperr.ErrNotFound
+}
 
 func (members) RequireMember(_ context.Context, convID, userID int64) error {
 	if convID == 1 && userID == 1 {
@@ -116,6 +124,13 @@ func TestList_LimitsAndDirection(t *testing.T) {
 	_, _ = svc.List(ctx, ListInput{ConversationID: 1, ViewerID: 1, After: 9, Before: 3})
 	if repo.gotAfter != 9 || repo.gotLimit != DefaultLimit {
 		t.Errorf("after: after=%d limit=%d", repo.gotAfter, repo.gotLimit)
+	}
+	if repo.gotFloor != 5 {
+		t.Errorf("before: floor = %d, want the cleared id 5", repo.gotFloor)
+	}
+	_, _ = svc.List(ctx, ListInput{ConversationID: 1, ViewerID: 1, After: 2})
+	if repo.gotAfter != 5 {
+		t.Errorf("after 2 with history cleared to 5: after = %d, want 5", repo.gotAfter)
 	}
 	if _, err := svc.List(ctx, ListInput{ConversationID: 1, ViewerID: 2}); !errors.Is(err, apperr.ErrNotFound) {
 		t.Errorf("non-member: err = %v", err)

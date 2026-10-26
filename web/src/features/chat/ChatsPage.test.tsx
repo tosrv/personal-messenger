@@ -230,3 +230,74 @@ describe('ChatsPage', () => {
     expect(await screen.findByText(/No conversations yet/)).toBeInTheDocument()
   })
 })
+
+describe('delete chat', () => {
+  function mockDeletable(status = 204) {
+    let deleted = false
+    mockApi({
+      'GET /me': () => [200, me],
+      'GET /conversations': () => [
+        200,
+        { conversations: deleted ? conversations.slice(1) : conversations },
+      ],
+      'GET /conversations/7': () => [200, conversations[0]],
+      'GET /conversations/7/messages': () => [200, { messages: [], has_more: false }],
+      'POST /conversations/7/read': () => [204],
+      'DELETE /conversations/7': () => {
+        if (status === 204) deleted = true
+        return status === 204 ? [204] : [status, { error: 'internal server error' }]
+      },
+    })
+    return () => deleted
+  }
+  const openAlice = () =>
+    renderWithProviders(<ChatsPage />, {
+      path: '/chats',
+      route: { pathname: '/chats', state: { conversationId: 7 } },
+    })
+
+  it('asks for confirmation, then removes the chat and closes it', async () => {
+    const wasDeleted = mockDeletable()
+    openAlice()
+    await screen.findByRole('region', { name: 'Chat with Alice' })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete chat' }))
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete chat with Alice?' })
+    expect(dialog).toHaveTextContent('@alice still has them')
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete chat' }))
+
+    await vi.waitFor(() => expect(wasDeleted()).toBe(true))
+    expect(await screen.findByText(/Select a conversation/)).toBeInTheDocument()
+    const list = screen.getByRole('list', { name: 'Conversations' })
+    expect(within(list).queryByRole('button', { name: /Alice/ })).not.toBeInTheDocument()
+    expect(within(list).getByRole('button', { name: /Bob/ })).toBeInTheDocument()
+  })
+
+  it('cancels with Escape without deleting', async () => {
+    const wasDeleted = mockDeletable()
+    openAlice()
+    await screen.findByRole('region', { name: 'Chat with Alice' })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete chat' }))
+    await userEvent.keyboard('{Escape}')
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Chat with Alice' })).toBeInTheDocument()
+    expect(wasDeleted()).toBe(false)
+  })
+
+  it('keeps the dialog open and explains when deleting fails', async () => {
+    mockDeletable(500)
+    openAlice()
+    await screen.findByRole('region', { name: 'Chat with Alice' })
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete chat' }))
+    const dialog = screen.getByRole('alertdialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete chat' }))
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('internal server error')
+    expect(screen.getByRole('region', { name: 'Chat with Alice' })).toBeInTheDocument()
+  })
+})

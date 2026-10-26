@@ -72,15 +72,15 @@ func TestPostgresRepository(t *testing.T) {
 	}
 
 	t.Run("pages backwards in ascending order", func(t *testing.T) {
-		p, err := repo.ListBefore(ctx, 1, 0, 5)
+		p, err := repo.ListBefore(ctx, 1, 0, 0, 5)
 		if err != nil || !p.HasMore || ids(p) != fmt.Sprint(all[7:12]) {
 			t.Fatalf("newest page: %s hasMore=%v err=%v", ids(p), p.HasMore, err)
 		}
-		p, _ = repo.ListBefore(ctx, 1, all[7], 5)
+		p, _ = repo.ListBefore(ctx, 1, all[7], 0, 5)
 		if !p.HasMore || ids(p) != fmt.Sprint(all[2:7]) {
 			t.Errorf("second page: %s hasMore=%v", ids(p), p.HasMore)
 		}
-		p, _ = repo.ListBefore(ctx, 1, all[2], 5)
+		p, _ = repo.ListBefore(ctx, 1, all[2], 0, 5)
 		if p.HasMore || ids(p) != fmt.Sprint(all[0:2]) {
 			t.Errorf("last page: %s hasMore=%v", ids(p), p.HasMore)
 		}

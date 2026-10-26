@@ -39,6 +39,8 @@ erDiagram
         bigint conversation_id PK, FK
         bigint user_id PK, FK
         bigint last_read_message_id "nullable"
+        bigint cleared_message_id "delete chat: hidden up to here"
+        timestamptz deleted_at "nullable; hidden from list"
         timestamptz joined_at
     }
     messages {
@@ -77,6 +79,8 @@ See [ADR 0001](adr/0001-database-backed-sessions.md). Only the SHA-256 hash of t
 ### `conversation_members`
 
 Composite primary key `(conversation_id, user_id)` prevents adding the same user twice. Every read or write of a conversation checks for a row here (PRD §6.4). `last_read_message_id` supports unread indicators (PRD §6.6).
+
+"Delete chat" is per user, like WhatsApp's *delete for me* (migration 000003). `cleared_message_id` hides every message up to that id from this member only, and `deleted_at` keeps the chat out of their list until a new message arrives or they open it again. The other member's history is untouched, and no message rows are deleted.
 
 ### `messages`
 

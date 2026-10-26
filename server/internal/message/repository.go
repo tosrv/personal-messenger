@@ -70,17 +70,17 @@ func (r *PostgresRepository) Create(ctx context.Context, m Message) (stored Mess
 	return stored, true, tx.Commit(ctx)
 }
 
-// ListBefore returns up to limit messages with id < before (0 = from newest),
-// in ascending order, and whether older messages remain.
-func (r *PostgresRepository) ListBefore(ctx context.Context, conversationID, before int64, limit int) (Page, error) {
+// ListBefore returns up to limit messages with floor < id < before (before
+// 0 = from newest), in ascending order, and whether older ones remain.
+func (r *PostgresRepository) ListBefore(ctx context.Context, conversationID, before, floor int64, limit int) (Page, error) {
 	if before == 0 {
 		before = 1<<63 - 1
 	}
 	msgs, err := r.list(ctx,
 		`SELECT `+messageColumns+` FROM messages
-		 WHERE conversation_id = $1 AND id < $2
-		 ORDER BY id DESC LIMIT $3`,
-		conversationID, before, limit+1)
+		 WHERE conversation_id = $1 AND id < $2 AND id > $3
+		 ORDER BY id DESC LIMIT $4`,
+		conversationID, before, floor, limit+1)
 	if err != nil {
 		return Page{}, err
 	}

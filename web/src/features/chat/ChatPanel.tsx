@@ -1,11 +1,21 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Avatar } from '../../components/Avatar'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { ErrorState, LoadingState } from '../../components/States'
 import { ApiError } from '../../lib/api'
 import { dayKey, formatDayLabel, formatTime } from '../../lib/time'
 import { useMe } from '../auth/api'
-import { useConversation, useMarkRead, useMessages, useSendMessage, type Message } from './api'
+import {
+  useConversation,
+  useDeleteChat,
+  useMarkRead,
+  useMessages,
+  useSendMessage,
+  type Message,
+  type Peer,
+} from './api'
 import { Composer } from './Composer'
 
 /** A message the server has not confirmed yet (PRD §6.5). */
@@ -21,9 +31,12 @@ type Pending = {
 export function ChatPanel({
   conversationId,
   onBack,
+  onDeleted,
 }: {
   conversationId: number
   onBack: () => void
+  /** Called after the user deleted this chat. */
+  onDeleted: () => void
 }) {
   const conversation = useConversation(conversationId)
 
@@ -59,6 +72,7 @@ export function ChatPanel({
           <Avatar name={peer.display_name} src={peer.avatar_url} size="sm" />
           <span className="font-medium">{peer.display_name}</span>
         </Link>
+        <DeleteChatButton conversationId={conversationId} peer={peer} onDeleted={onDeleted} />
       </header>
       {/* key: a different chat gets fresh pending/scroll state. */}
       <Thread
@@ -67,6 +81,50 @@ export function ChatPanel({
         lastReadMessageId={conversation.data.last_read_message_id}
       />
     </section>
+  )
+}
+
+function DeleteChatButton({
+  conversationId,
+  peer,
+  onDeleted,
+}: {
+  conversationId: number
+  peer: Peer
+  onDeleted: () => void
+}) {
+  const [confirming, setConfirming] = useState(false)
+  const del = useDeleteChat(conversationId)
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setConfirming(true)}
+        aria-label="Delete chat"
+        title="Delete chat"
+        className="ml-auto inline-flex size-8 items-center justify-center rounded-full text-muted hover:bg-surface hover:text-danger focus-visible:outline-2 focus-visible:outline-accent"
+      >
+        <Trash2 className="size-4" strokeWidth={1.75} aria-hidden />
+      </button>
+      {confirming && (
+        <ConfirmDialog
+          title={`Delete chat with ${peer.display_name}?`}
+          confirmLabel="Delete chat"
+          busyLabel="Deleting…"
+          busy={del.isPending}
+          error={del.isError ? del.error.message : undefined}
+          onCancel={() => {
+            setConfirming(false)
+            del.reset()
+          }}
+          onConfirm={() => del.mutate(undefined, { onSuccess: onDeleted })}
+        >
+          Messages are removed for you only; @{peer.username} still has them. If either of you sends
+          a new message, the chat comes back without the old messages.
+        </ConfirmDialog>
+      )}
+    </>
   )
 }
 

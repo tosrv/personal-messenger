@@ -20,13 +20,17 @@ const (
 
 type Repository interface {
 	Create(ctx context.Context, m Message) (stored Message, created bool, err error)
-	ListBefore(ctx context.Context, conversationID, before int64, limit int) (Page, error)
+	// floor: only messages with id > floor are returned (cleared history is hidden).
+	ListBefore(ctx context.Context, conversationID, before, floor int64, limit int) (Page, error)
 	ListAfter(ctx context.Context, conversationID, after int64, limit int) (Page, error)
 }
 
 // Membership is satisfied by conversation.Service.
 type Membership interface {
 	RequireMember(ctx context.Context, conversationID, userID int64) error
+	// VisibleFrom returns the id after which userID may read messages (their
+	// "delete chat" point, 0 if none), or ErrNotFound for non-members.
+	VisibleFrom(ctx context.Context, conversationID, userID int64) (int64, error)
 }
 
 // Notifier is told about each newly stored message, after it is committed
@@ -100,7 +104,8 @@ type ListInput struct {
 }
 
 func (s *Service) List(ctx context.Context, in ListInput) (Page, error) {
-	if err := s.members.RequireMember(ctx, in.ConversationID, in.ViewerID); err != nil {
+	floor, err := s.members.VisibleFrom(ctx, in.ConversationID, in.ViewerID)
+	if err != nil {
 		return Page{}, err
 	}
 	limit := in.Limit
@@ -109,7 +114,7 @@ func (s *Service) List(ctx context.Context, in ListInput) (Page, error) {
 	}
 	limit = min(limit, MaxLimit)
 	if in.After > 0 {
-		return s.repo.ListAfter(ctx, in.ConversationID, in.After, limit)
+		return s.repo.ListAfter(ctx, in.ConversationID, max(in.After, floor), limit)
 	}
-	return s.repo.ListBefore(ctx, in.ConversationID, in.Before, limit)
+	return s.repo.ListBefore(ctx, in.ConversationID, in.Before, floor, limit)
 }

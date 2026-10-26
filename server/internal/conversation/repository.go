@@ -25,7 +25,9 @@ func NewPostgresRepository(db *pgxpool.Pool) *PostgresRepository {
 
 // GetOrCreateDirect returns the direct conversation between two users,
 // creating it if needed. The unique direct_key makes concurrent calls for
-// the same pair converge on one row.
+// the same pair converge on one row. a is the user opening it: if they had
+// deleted the chat, it returns to their list (with the old history still
+// cleared).
 func (r *PostgresRepository) GetOrCreateDirect(ctx context.Context, a, b int64) (int64, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
@@ -49,6 +51,11 @@ func (r *PostgresRepository) GetOrCreateDirect(ctx context.Context, a, b int64) 
 		id, a, b); err != nil {
 		return 0, err
 	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE conversation_members SET deleted_at = NULL WHERE conversation_id = $1 AND user_id = $2`,
+		id, a); err != nil {
+		return 0, err
+	}
 	return id, tx.Commit(ctx)
 }
 
@@ -69,8 +76,9 @@ func (r *PostgresRepository) MemberIDs(ctx context.Context, conversationID int64
 	return pgx.CollectRows(rows, pgx.RowTo[int64])
 }
 
-// summarySQL selects conversation summaries for viewer $1. Unread counts only
-// messages from the peer that are newer than the viewer's read marker.
+// summarySQL selects conversation summaries for viewer $1. Messages the
+// viewer cleared ("delete chat") are ignored. Unread counts only messages
+// from the peer that are newer than the viewer's read marker.
 const summarySQL = `
 SELECT c.id, c.created_at, me.last_read_message_id,
        u.id, u.username, u.display_name, coalesce(u.avatar_url, ''),
@@ -78,20 +86,24 @@ SELECT c.id, c.created_at, me.last_read_message_id,
        (SELECT count(*) FROM messages m
          WHERE m.conversation_id = c.id
            AND m.sender_id <> me.user_id
-           AND m.id > coalesce(me.last_read_message_id, 0)) AS unread
+           AND m.id > coalesce(me.last_read_message_id, 0)
+           AND m.id > me.cleared_message_id) AS unread
 FROM conversation_members me
 JOIN conversations c        ON c.id = me.conversation_id
 JOIN conversation_members o ON o.conversation_id = c.id AND o.user_id <> me.user_id
 JOIN users u                ON u.id = o.user_id
 LEFT JOIN LATERAL (
     SELECT id, sender_id, body, created_at FROM messages
-    WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1
+    WHERE conversation_id = c.id AND id > me.cleared_message_id
+    ORDER BY id DESC LIMIT 1
 ) lm ON true
 WHERE me.user_id = $1`
 
 func (r *PostgresRepository) ListForUser(ctx context.Context, userID int64) ([]Summary, error) {
 	rows, err := r.db.Query(ctx,
-		summarySQL+` ORDER BY c.last_message_at DESC NULLS LAST, c.id DESC LIMIT $2`,
+		// A deleted chat stays hidden until a new message arrives in it.
+		summarySQL+` AND (me.deleted_at IS NULL OR lm.id IS NOT NULL)
+		 ORDER BY c.last_message_at DESC NULLS LAST, c.id DESC LIMIT $2`,
 		userID, listLimit)
 	if err != nil {
 		return nil, err
@@ -120,6 +132,35 @@ func (r *PostgresRepository) MarkRead(ctx context.Context, conversationID, userI
 		 WHERE conversation_id = $1 AND user_id = $2`,
 		conversationID, userID, messageID)
 	return err
+}
+
+// ClearForUser deletes the chat for userID only: everything up to the newest
+// message is hidden from them, it leaves their list, and nothing counts as
+// unread. The other member keeps the full history. It reports whether
+// userID is a member.
+func (r *PostgresRepository) ClearForUser(ctx context.Context, conversationID, userID int64) (bool, error) {
+	tag, err := r.db.Exec(ctx,
+		`UPDATE conversation_members m
+		 SET cleared_message_id = GREATEST(m.cleared_message_id, newest.id),
+		     last_read_message_id = GREATEST(coalesce(m.last_read_message_id, 0), newest.id),
+		     deleted_at = now()
+		 FROM (SELECT coalesce(max(id), 0) AS id FROM messages WHERE conversation_id = $1) newest
+		 WHERE m.conversation_id = $1 AND m.user_id = $2`,
+		conversationID, userID)
+	return tag.RowsAffected() == 1, err
+}
+
+// VisibleFrom returns the id after which userID may see messages (0 = all),
+// or ErrNotFound if userID is not a member.
+func (r *PostgresRepository) VisibleFrom(ctx context.Context, conversationID, userID int64) (int64, error) {
+	var cleared int64
+	err := r.db.QueryRow(ctx,
+		`SELECT cleared_message_id FROM conversation_members WHERE conversation_id = $1 AND user_id = $2`,
+		conversationID, userID).Scan(&cleared)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, apperr.ErrNotFound
+	}
+	return cleared, err
 }
 
 func scanSummary(row pgx.Row) (Summary, error) {

@@ -15,6 +15,8 @@ type Repository interface {
 	ListForUser(ctx context.Context, userID int64) ([]Summary, error)
 	GetForUser(ctx context.Context, conversationID, userID int64) (Summary, error)
 	MarkRead(ctx context.Context, conversationID, userID, messageID int64) error
+	ClearForUser(ctx context.Context, conversationID, userID int64) (bool, error)
+	VisibleFrom(ctx context.Context, conversationID, userID int64) (int64, error)
 }
 
 // UserLookup resolves a username to a public profile (implemented by user.Service).
@@ -61,6 +63,26 @@ func (s *Service) MarkRead(ctx context.Context, viewerID, conversationID, messag
 		return err
 	}
 	return s.repo.MarkRead(ctx, conversationID, viewerID, messageID)
+}
+
+// DeleteForMe removes the chat from the viewer's list and hides its history
+// from them only, like WhatsApp's "delete chat". It reappears, without the
+// old messages, when a new message arrives or the viewer opens it again.
+func (s *Service) DeleteForMe(ctx context.Context, viewerID, conversationID int64) error {
+	ok, err := s.repo.ClearForUser(ctx, conversationID, viewerID)
+	if err != nil {
+		return fmt.Errorf("delete chat: %w", err)
+	}
+	if !ok {
+		return apperr.ErrNotFound
+	}
+	return nil
+}
+
+// VisibleFrom implements message.Membership: it returns the id after which
+// the user may read messages, or ErrNotFound if they are not a member.
+func (s *Service) VisibleFrom(ctx context.Context, conversationID, userID int64) (int64, error) {
+	return s.repo.VisibleFrom(ctx, conversationID, userID)
 }
 
 // MemberIDs lists the users in a conversation, for routing real-time events.

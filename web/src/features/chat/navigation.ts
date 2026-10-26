@@ -33,6 +33,12 @@ export function useOpenChat() {
   )
 }
 
+/** Shows the list with no chat open, without a history entry (e.g. after deleting it). */
+export function useResetChats() {
+  const navigate = useNavigate()
+  return useCallback(() => navigate(CHATS_PATH, { replace: true, state: null }), [navigate])
+}
+
 /** Closes the open chat, e.g. the ← button on phones. */
 export function useCloseChat() {
   const navigate = useNavigate()
