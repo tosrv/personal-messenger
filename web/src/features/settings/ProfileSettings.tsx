@@ -3,20 +3,30 @@ import { useState, type FormEvent } from 'react'
 import { Avatar } from '../../components/Avatar'
 import { LoadingState } from '../../components/States'
 import { api } from '../../lib/api'
-import { meQueryKey, useMe, type Me } from './api'
+import { meQueryKey, useMe, type Me } from '../auth/api'
+import { SettingsPanel } from './SettingsPanel'
 
 const USERNAME_PATTERN = '[a-zA-Z0-9_]{3,32}'
-export const MAX_DISPLAY_NAME_LENGTH = 50
+const MAX_DISPLAY_NAME_LENGTH = 50
 
 type ProfileChanges = { username?: string; display_name?: string }
 
 /** Mirrors the server: trim and collapse whitespace. */
 const normalizeName = (s: string) => s.trim().replace(/\s+/g, ' ')
 
-export function SettingsPage() {
+export function ProfileSettings() {
   const me = useMe()
   if (!me.data) return <LoadingState />
-  return <ProfileForm me={me.data} />
+  return (
+    <SettingsPanel
+      title="Profile"
+      description={
+        <>Signed in with Google as {me.data.email}. Your email is never shown to other users.</>
+      }
+    >
+      <ProfileForm me={me.data} />
+    </SettingsPanel>
+  )
 }
 
 function ProfileForm({ me }: { me: Me }) {
@@ -51,13 +61,8 @@ function ProfileForm({ me }: { me: Me }) {
     'mt-2 w-full rounded-lg border border-line bg-surface px-3 py-2 outline-none focus:border-accent'
 
   return (
-    <section className="mx-auto max-w-xl px-4 py-8">
-      <h1 className="text-xl font-semibold">Profile</h1>
-      <p className="mt-1 text-sm text-muted">
-        Signed in with Google as {me.email}. Your email is never shown to other users.
-      </p>
-
-      <div className="mt-6 flex items-center gap-3">
+    <>
+      <div className="flex items-center gap-3">
         <Avatar name={displayName || me.display_name} src={me.avatar_url} size="lg" />
         <div className="min-w-0">
           <p className="truncate text-lg font-medium">
@@ -126,6 +131,6 @@ function ProfileForm({ me }: { me: Me }) {
           </p>
         </div>
       </form>
-    </section>
+    </>
   )
 }

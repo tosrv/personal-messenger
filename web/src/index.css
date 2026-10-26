@@ -13,8 +13,14 @@
   --color-danger: #c62828;
 }
 
+/*
+ * Dark palette. Applied when the OS prefers dark and the user did not pick
+ * light, or when the user picked dark. <html data-theme> is set by
+ * public/theme-init.js before first paint (Settings → Appearance).
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
     --color-bg: #121212;
     --color-fg: #ececec;
     --color-muted: #a0a0a0;
@@ -25,6 +31,21 @@
     --color-ok: #4ade80;
     --color-danger: #f87171;
   }
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-bg: #121212;
+  --color-fg: #ececec;
+  --color-muted: #a0a0a0;
+  --color-surface: #1e1e1e;
+  --color-line: #2e2e2e;
+  --color-accent: #60a5fa;
+  --color-accent-fg: #0b1220;
+  --color-ok: #4ade80;
+  --color-danger: #f87171;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
 }
 
 /* Reveal after a delay; used for the connection banner. */

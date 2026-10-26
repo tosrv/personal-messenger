@@ -1,10 +1,10 @@
+import { MessageCircle } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
+import { NavIconLink } from '../components/NavIcon'
 import { UserMenu } from '../features/auth/UserMenu'
+import { CHATS_PATH } from '../features/chat/navigation'
 import { ConnectionBanner } from '../features/realtime/ConnectionBanner'
 import { RealtimeProvider } from '../features/realtime/RealtimeProvider'
-
-const navLink = ({ isActive }: { isActive: boolean }) =>
-  `rounded-md px-2 py-1 text-sm ${isActive ? 'font-medium text-fg' : 'text-muted hover:text-fg'}`
 
 export function Layout() {
   return (
@@ -12,16 +12,14 @@ export function Layout() {
       {/* Fixed-height shell: pages scroll inside <main>, so the chat view can fill it. */}
       <div className="flex h-dvh flex-col">
         <header className="border-b border-line">
-          <nav className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-3 sm:gap-4">
+          <nav
+            aria-label="Main"
+            className="mx-auto flex max-w-5xl items-center gap-1 px-4 py-2 sm:gap-2"
+          >
             <NavLink to="/" className="mr-auto font-semibold">
               Messenger
             </NavLink>
-            <NavLink to="/search" className={navLink}>
-              Search
-            </NavLink>
-            <NavLink to="/chats" className={navLink}>
-              Chats
-            </NavLink>
+            <NavIconLink to={CHATS_PATH} label="Chats" icon={MessageCircle} />
             <UserMenu />
           </nav>
         </header>

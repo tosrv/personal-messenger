@@ -1,13 +1,16 @@
 import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom'
 import { LoginPage } from '../features/auth/LoginPage'
 import { RequireAuth } from '../features/auth/RequireAuth'
-import { SettingsPage } from '../features/auth/SettingsPage'
 import { ChatsPage } from '../features/chat/ChatsPage'
 import { LegacyChatRedirect } from '../features/chat/LegacyChatRedirect'
 import { CHATS_PATH } from '../features/chat/navigation'
+import { AppearanceSettings } from '../features/settings/AppearanceSettings'
+import { LanguageSettings } from '../features/settings/LanguageSettings'
+import { ProfileSettings } from '../features/settings/ProfileSettings'
+import { SettingsLayout } from '../features/settings/SettingsLayout'
+import { SignOutSettings } from '../features/settings/SignOutSettings'
 import { HomePage } from '../features/system/HomePage'
 import { ProfilePage } from '../features/users/ProfilePage'
-import { SearchPage } from '../features/users/SearchPage'
 import { Layout } from './Layout'
 
 export const router = createBrowserRouter([
@@ -24,12 +27,24 @@ export const router = createBrowserRouter([
           </RequireAuth>
         ),
         children: [
-          { path: '/search', element: <SearchPage /> },
           { path: '/u/:username', element: <ProfilePage /> },
-          { path: '/settings', element: <SettingsPage /> },
+          {
+            path: '/settings',
+            element: <SettingsLayout />,
+            children: [
+              // Wide screens show Profile next to the menu; phones show only the menu.
+              { index: true, element: <ProfileSettings /> },
+              { path: 'profile', element: <ProfileSettings /> },
+              { path: 'appearance', element: <AppearanceSettings /> },
+              { path: 'language', element: <LanguageSettings /> },
+              { path: 'sign-out', element: <SignOutSettings /> },
+              { path: '*', element: <Navigate to="/settings" replace /> },
+            ],
+          },
           { path: CHATS_PATH, element: <ChatsPage /> },
           // Old addresses from before chats moved to a single page.
           { path: '/conversations', element: <Navigate to={CHATS_PATH} replace /> },
+          { path: '/search', element: <Navigate to={CHATS_PATH} replace /> },
           { path: '/c/:id', element: <LegacyChatRedirect /> },
         ],
       },

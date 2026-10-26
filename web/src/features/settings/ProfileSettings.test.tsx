@@ -2,7 +2,7 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { mockApi } from '../../test/mockApi'
 import { renderWithProviders } from '../../test/render'
-import { SettingsPage } from './SettingsPage'
+import { ProfileSettings } from './ProfileSettings'
 
 const me = { id: 1, username: 'tomy', display_name: 'Tomy', email: 't@example.com' }
 
@@ -17,11 +17,11 @@ function renderSettings(respond: (body: Record<string, string>) => [number, unkn
       return respond(body)
     },
   })
-  renderWithProviders(<SettingsPage />)
+  renderWithProviders(<ProfileSettings />)
   return patches
 }
 
-describe('SettingsPage', () => {
+describe('ProfileSettings', () => {
   it('saves a new display name without resending the username', async () => {
     const patches = renderSettings((b) => [200, { ...me, ...b }])
     const name = await screen.findByLabelText('Name')

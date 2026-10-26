@@ -17,8 +17,8 @@ export function HomePage() {
       <p role="status" className={`mt-6 text-sm ${color}`}>
         API: {label}
       </p>
-      <Link to="/search" className="mt-8 inline-block font-medium text-accent hover:underline">
-        Find people →
+      <Link to="/chats" className="mt-8 inline-block font-medium text-accent hover:underline">
+        Open chats →
       </Link>
     </section>
   )

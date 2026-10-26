@@ -28,7 +28,7 @@ export function ProfilePage() {
       <h1 className="text-2xl font-semibold">{u.display_name}</h1>
       <p className="text-muted">@{u.username}</p>
       {isMe ? (
-        <Link to="/settings" className="mt-4 text-sm text-accent hover:underline">
+        <Link to="/settings/profile" className="mt-4 text-sm text-accent hover:underline">
           This is you · Edit profile
         </Link>
       ) : (

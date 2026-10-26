@@ -76,7 +76,7 @@ describe('ChatsPage', () => {
     expect(within(list).getByText('See you')).toBeInTheDocument()
     expect(within(list).getByLabelText('3 unread')).toBeInTheDocument()
     expect(await within(list).findByText('You: Thanks!')).toBeInTheDocument()
-    expect(screen.getByText('Select a conversation to start chatting.')).toBeInTheDocument()
+    expect(screen.getByText(/Select a conversation/)).toBeInTheDocument()
   })
 
   it('opens a chat beside the list without changing the URL', async () => {
@@ -100,8 +100,128 @@ describe('ChatsPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Back to chats' }))
 
-    expect(await screen.findByText('Select a conversation to start chatting.')).toBeInTheDocument()
+    expect(await screen.findByText(/Select a conversation/)).toBeInTheDocument()
     expect(screen.queryByRole('region', { name: 'Chat with Alice' })).not.toBeInTheDocument()
+  })
+
+  describe('search', () => {
+    function mockSearch(onStart = () => {}) {
+      mockApi({
+        'GET /me': () => [200, me],
+        'GET /conversations': () => [200, { conversations }],
+        'GET /users/search': (_, url) => {
+          const q = url.searchParams.get('q')
+          return q === 'al'
+            ? [200, { users: [peer(2, 'Alice'), peer(4, 'Alfred')] }] // Alice already in chats
+            : [200, { users: [] }]
+        },
+        'POST /conversations': () => {
+          onStart()
+          return [200, { ...conversations[0], id: 9, peer: peer(4, 'Alfred') }]
+        },
+        'GET /conversations/9': () => [
+          200,
+          { ...conversations[0], id: 9, peer: peer(4, 'Alfred'), last_message: null },
+        ],
+        'GET /conversations/9/messages': () => [200, { messages: [], has_more: false }],
+      })
+    }
+
+    it('shows matching chats and new people, without duplicates', async () => {
+      mockSearch()
+      renderWithProviders(<ChatsPage />, { path: '/chats', route: '/chats' })
+      await screen.findByRole('list', { name: 'Conversations' })
+
+      await userEvent.type(screen.getByLabelText('Search chats or people'), 'al')
+
+      const chats = await screen.findByRole('region', { name: 'Chats' })
+      expect(within(chats).getByRole('button', { name: /Alice/ })).toBeInTheDocument()
+      const people = await screen.findByRole('region', { name: 'People' })
+      expect(within(people).getByRole('button', { name: /Alfred/ })).toBeInTheDocument()
+      expect(within(people).queryByRole('button', { name: /Alice/ })).not.toBeInTheDocument()
+      expect(screen.queryByRole('list', { name: 'Conversations' })).not.toBeInTheDocument()
+    })
+
+    it('starts a chat with a new person and clears the search', async () => {
+      let started = 0
+      mockSearch(() => started++)
+      renderWithProviders(<ChatsPage />, { path: '/chats', route: '/chats' })
+      await screen.findByRole('list', { name: 'Conversations' })
+
+      const box = screen.getByLabelText('Search chats or people')
+      await userEvent.type(box, 'al')
+      await userEvent.click(await screen.findByRole('button', { name: /Alfred/ }))
+
+      expect(await screen.findByRole('region', { name: 'Chat with Alfred' })).toBeInTheDocument()
+      expect(started).toBe(1)
+      expect(box).toHaveValue('')
+    })
+
+    it('never sends a query the server would reject (spaces), and clears back to the list', async () => {
+      mockSearch()
+      const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      renderWithProviders(<ChatsPage />, { path: '/chats', route: '/chats' })
+      await screen.findByRole('list', { name: 'Conversations' })
+
+      await userEvent.type(screen.getByLabelText('Search chats or people'), 'bo b')
+
+      expect(await screen.findByText(/No chats or people found/)).toBeInTheDocument()
+      // "bo" alone is a valid username prefix and may be searched while typing.
+      const searched = fetchSpy.mock.calls
+        .map(([u]) => String(u))
+        .filter((u) => u.includes('/users/search'))
+      expect(searched.some((u) => /q=bo(%20|\+| )b/.test(u))).toBe(false)
+      await userEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+      expect(await screen.findByRole('list', { name: 'Conversations' })).toBeInTheDocument()
+    })
+  })
+
+  describe('collapsible sidebar', () => {
+    it('collapses to avatars with unread dots, and the choice is remembered', async () => {
+      mockChats()
+      renderWithProviders(<ChatsPage />, { path: '/chats', route: '/chats' })
+      await screen.findByRole('list', { name: 'Conversations' })
+
+      const toggle = screen.getByRole('button', { name: 'Collapse sidebar' })
+      expect(toggle).toHaveAttribute('aria-expanded', 'true')
+      await userEvent.click(toggle)
+
+      expect(screen.getByRole('button', { name: 'Expand sidebar' })).toHaveAttribute(
+        'aria-expanded',
+        'false',
+      )
+      expect(screen.queryByLabelText('Search chats or people', { selector: 'input' })).toBeNull()
+      // Names move to accessible labels/tooltips; unread count stays announced.
+      const alice = screen.getByRole('button', { name: 'Alice, 3 unread' })
+      expect(alice).toHaveAttribute('title', 'Alice, 3 unread')
+      expect(alice).not.toHaveTextContent('See you')
+      expect(localStorage.getItem('pm-sidebar-chats')).toBe('collapsed')
+
+      await userEvent.click(alice)
+      expect(await screen.findByRole('region', { name: 'Chat with Alice' })).toBeInTheDocument()
+    })
+
+    it('expands and focuses search from the collapsed rail', async () => {
+      localStorage.setItem('pm-sidebar-chats', 'collapsed')
+      mockChats()
+      renderWithProviders(<ChatsPage />, { path: '/chats', route: '/chats' })
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Search chats or people' }))
+
+      const box = await screen.findByLabelText('Search chats or people', { selector: 'input' })
+      await vi.waitFor(() => expect(box).toHaveFocus())
+      expect(localStorage.getItem('pm-sidebar-chats')).toBeNull()
+    })
+
+    it('never collapses on phones', async () => {
+      window.__testWideScreen = false
+      localStorage.setItem('pm-sidebar-chats', 'collapsed')
+      mockChats()
+      renderWithProviders(<ChatsPage />, { path: '/chats', route: '/chats' })
+
+      expect(await screen.findByRole('button', { name: /Alice/ })).toHaveTextContent('See you')
+      expect(screen.getByLabelText('Search chats or people', { selector: 'input' })).toBeVisible()
+    })
   })
 
   it('shows an empty state', async () => {

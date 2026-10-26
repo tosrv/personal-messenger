@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom'
 import { Avatar } from '../../components/Avatar'
 import { EmptyState, ErrorState, LoadingState } from '../../components/States'
 import { formatShortTime } from '../../lib/time'
@@ -8,26 +7,63 @@ import { useConversations } from './api'
 export function ConversationList({
   selectedId,
   onSelect,
+  compact = false,
 }: {
   selectedId: number | null
   onSelect: (conversationId: number) => void
+  /** Collapsed sidebar: avatars only, details in the tooltip. */
+  compact?: boolean
 }) {
   const me = useMe()
   const conversations = useConversations()
 
-  if (conversations.isPending) return <LoadingState />
+  if (conversations.isPending) return compact ? null : <LoadingState />
   if (conversations.isError) {
     return <ErrorState error={conversations.error} onRetry={() => conversations.refetch()} />
   }
   if (conversations.data.length === 0) {
+    if (compact) return null
     return (
       <EmptyState>
-        No conversations yet.{' '}
-        <Link to="/search" className="text-accent hover:underline">
-          Find someone to message
-        </Link>
-        .
+        No conversations yet.
+        <br />
+        Search for someone above to start chatting.
       </EmptyState>
+    )
+  }
+
+  if (compact) {
+    return (
+      <ul className="flex flex-col items-center gap-1 py-1" aria-label="Conversations">
+        {conversations.data.map((c) => {
+          const selected = c.id === selectedId
+          const label = c.unread_count
+            ? `${c.peer.display_name}, ${c.unread_count} unread`
+            : c.peer.display_name
+          return (
+            <li key={c.id}>
+              <button
+                type="button"
+                onClick={() => onSelect(c.id)}
+                aria-current={selected ? 'true' : undefined}
+                aria-label={label}
+                title={label}
+                className={`relative rounded-full p-1 hover:bg-surface focus-visible:outline-2 focus-visible:outline-accent ${
+                  selected ? 'bg-surface ring-2 ring-accent' : ''
+                }`}
+              >
+                <Avatar name={c.peer.display_name} src={c.peer.avatar_url} />
+                {c.unread_count > 0 && (
+                  <span
+                    aria-hidden
+                    className="absolute top-0.5 right-0.5 size-3 rounded-full bg-accent ring-2 ring-bg"
+                  />
+                )}
+              </button>
+            </li>
+          )
+        })}
+      </ul>
     )
   }
 
