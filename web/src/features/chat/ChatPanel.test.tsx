@@ -107,3 +107,49 @@ describe('ChatPanel (open chat in /chats)', () => {
     )
   })
 })
+
+describe('ChatPanel date separators', () => {
+  it('groups messages under Yesterday and Today like WhatsApp', async () => {
+    const now = new Date()
+    const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 12)
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 5)
+    const msg = (id: number, at: Date, body: string) => ({
+      id,
+      conversation_id: 7,
+      sender_id: 2,
+      client_message_id: `c-${id}`,
+      body,
+      created_at: at.toISOString(),
+    })
+    mockApi({
+      'GET /me': () => [200, me],
+      'GET /conversations/7': () => [200, conversation],
+      'GET /conversations/7/messages': () => [
+        200,
+        {
+          messages: [
+            msg(1, yesterday, 'first'),
+            msg(2, yesterday, 'second'),
+            msg(3, today, 'third'),
+          ],
+          has_more: false,
+        },
+      ],
+      'POST /conversations/7/read': () => [204],
+      'GET /conversations': () => [200, { conversations: [] }],
+    })
+    renderWithProviders(<ChatsPage />, {
+      path: '/chats',
+      route: { pathname: '/chats', state: { conversationId: 7 } },
+    })
+
+    await screen.findByText('third')
+    const list = screen.getByRole('list', { name: 'Messages' })
+    const order = Array.from(list.querySelectorAll('li')).map((li) =>
+      li.getAttribute('role') === 'separator'
+        ? `[${li.textContent}]`
+        : li.querySelector('p')?.textContent,
+    )
+    expect(order).toEqual(['[Yesterday]', 'first', 'second', '[Today]', 'third'])
+  })
+})

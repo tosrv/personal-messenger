@@ -1,3 +1,4 @@
+import { SendHorizontal } from 'lucide-react'
 import { useState, type FormEvent, type KeyboardEvent } from 'react'
 import { MAX_MESSAGE_LENGTH } from './api'
 
@@ -34,7 +35,7 @@ export function Composer({ onSend }: { onSend: (body: string) => void }) {
         onChange={(e) => setBody(e.target.value)}
         onKeyDown={onKeyDown}
         placeholder="Write a message"
-        className="field-sizing-content max-h-40 min-h-10 flex-1 resize-none rounded-lg border border-line bg-surface px-3 py-2 outline-none focus:border-accent"
+        className="field-sizing-content max-h-40 min-h-10 flex-1 resize-none bg-transparent px-1 py-2 outline-none placeholder:text-muted"
       />
       {remaining < 200 && (
         <span className="pb-2 text-xs text-muted" aria-live="polite">
@@ -44,9 +45,11 @@ export function Composer({ onSend }: { onSend: (body: string) => void }) {
       <button
         type="submit"
         disabled={!canSend}
-        className="rounded-lg bg-accent px-4 py-2 font-medium text-accent-fg hover:opacity-90 disabled:opacity-50"
+        aria-label="Send"
+        title="Send (Enter)"
+        className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-accent-fg hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
       >
-        Send
+        <SendHorizontal className="size-5" aria-hidden />
       </button>
     </form>
   )

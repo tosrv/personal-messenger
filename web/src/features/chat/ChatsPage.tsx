@@ -74,7 +74,7 @@ export function ChatsPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Escape' && setQuery('')}
-                className="w-full rounded-full border border-line bg-surface py-2 pr-9 pl-9 text-sm outline-none focus:border-accent [&::-webkit-search-cancel-button]:hidden"
+                className="w-full bg-transparent py-2 pr-9 pl-9 text-sm outline-none placeholder:text-muted [&::-webkit-search-cancel-button]:hidden"
               />
               {searching && (
                 <button

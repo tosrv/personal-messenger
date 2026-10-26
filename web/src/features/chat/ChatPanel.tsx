@@ -1,15 +1,21 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Avatar } from '../../components/Avatar'
 import { ErrorState, LoadingState } from '../../components/States'
 import { ApiError } from '../../lib/api'
-import { formatTime } from '../../lib/time'
+import { dayKey, formatDayLabel, formatTime } from '../../lib/time'
 import { useMe } from '../auth/api'
 import { useConversation, useMarkRead, useMessages, useSendMessage, type Message } from './api'
 import { Composer } from './Composer'
 
 /** A message the server has not confirmed yet (PRD §6.5). */
-type Pending = { clientMessageId: string; body: string; status: 'sending' | 'failed' }
+type Pending = {
+  clientMessageId: string
+  body: string
+  status: 'sending' | 'failed'
+  /** When the user pressed send (ISO), for the date separator. */
+  createdAt: string
+}
 
 /** The right-hand pane of /chats: one conversation's messages and composer. */
 export function ChatPanel({
@@ -127,7 +133,12 @@ function Thread({
   }
 
   const onSend = (body: string) => {
-    const p: Pending = { clientMessageId: crypto.randomUUID(), body, status: 'sending' }
+    const p: Pending = {
+      clientMessageId: crypto.randomUUID(),
+      body,
+      status: 'sending',
+      createdAt: new Date().toISOString(),
+    }
     nearBottom.current = true
     setPending((list) => [...list, p])
     deliver(p)
@@ -177,11 +188,22 @@ function Thread({
               <p className="py-8 text-center text-muted">No messages yet. Say hello!</p>
             )}
             <ol className="flex flex-col gap-1.5" aria-label="Messages">
-              {messages.map((m) => (
-                <Bubble key={m.id} mine={m.sender_id === me.data?.id} body={m.body}>
-                  {formatTime(m.created_at)}
-                </Bubble>
+              {messages.map((m, i) => (
+                <Fragment key={m.id}>
+                  {/* A new calendar day starts: "Today", "Yesterday", "Monday", "12 October"… */}
+                  {(i === 0 || dayKey(m.created_at) !== dayKey(messages[i - 1].created_at)) && (
+                    <DaySeparator iso={m.created_at} />
+                  )}
+                  <Bubble mine={m.sender_id === me.data?.id} body={m.body}>
+                    {formatTime(m.created_at)}
+                  </Bubble>
+                </Fragment>
               ))}
+              {/* Unconfirmed messages get a separator too if they start a new day. */}
+              {visiblePending.length > 0 &&
+                !sameDay(messages.at(-1)?.created_at, visiblePending[0].createdAt) && (
+                  <DaySeparator iso={visiblePending[0].createdAt} />
+                )}
               {visiblePending.map((p) => (
                 <Bubble key={p.clientMessageId} mine body={p.body} faded={p.status === 'sending'}>
                   {p.status === 'sending' ? (
@@ -205,6 +227,20 @@ function Thread({
   )
 }
 
+function sameDay(a: string | undefined, b: string): boolean {
+  return a !== undefined && dayKey(a) === dayKey(b)
+}
+
+function DaySeparator({ iso }: { iso: string }) {
+  return (
+    <li className="sticky top-0 z-10 my-2 flex justify-center" role="separator">
+      <span className="rounded-full border border-line bg-bg px-3 py-0.5 text-xs font-medium text-muted shadow-sm">
+        <time dateTime={iso}>{formatDayLabel(iso)}</time>
+      </span>
+    </li>
+  )
+}
+
 function Bubble({
   mine,
   body,
@@ -219,7 +255,7 @@ function Bubble({
   return (
     <li className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
       <p
-        className={`max-w-[80%] rounded-2xl px-3 py-2 wrap-break-word whitespace-pre-wrap ${
+        className={`max-w-[80%] rounded-2xl px-3 py-1 wrap-break-word whitespace-pre-wrap ${
           mine ? 'bg-accent text-accent-fg' : 'bg-surface'
         } ${faded ? 'opacity-60' : ''}`}
       >
