@@ -31,6 +31,8 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?set GOOGLE_CLIENT_ID in .env}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?set GOOGLE_CLIENT_SECRET in .env}
       GOOGLE_REDIRECT_URL: https://${DOMAIN}/api/v1/auth/callback
+      # Guest mode: who visitors without Google may chat with (empty = off).
+      OWNER_USERNAME: ${OWNER_USERNAME:-}
       # Requests arrive from the host's nginx through Docker's bridge network.
       TRUSTED_PROXIES: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
     depends_on:

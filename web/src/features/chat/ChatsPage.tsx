@@ -2,6 +2,7 @@ import { Search, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { SidebarToggle } from '../../components/SidebarToggle'
 import { useSidebarCollapsed } from '../../lib/sidebar'
+import { useMe } from '../auth/api'
 import { ChatPanel } from './ChatPanel'
 import { ChatSearchResults } from './ChatSearchResults'
 import { ConversationList } from './ConversationList'
@@ -18,8 +19,10 @@ export function ChatsPage() {
   const openChat = useOpenChat()
   const closeChat = useCloseChat()
   const resetChats = useResetChats()
+  // Guests can only chat with the owner, so there is nothing to search for.
+  const canSearch = !useMe().data?.is_guest
   const [query, setQuery] = useState('')
-  const searching = query.trim().length > 0
+  const searching = canSearch && query.trim().length > 0
   const { collapsed, toggle } = useSidebarCollapsed('chats')
   const searchInput = useRef<HTMLInputElement>(null)
 
@@ -41,15 +44,17 @@ export function ChatsPage() {
         {collapsed ? (
           <div className="flex flex-col items-center gap-1 pt-3 pb-2">
             <SidebarToggle collapsed onToggle={toggle} controls="chats-sidebar" />
-            <button
-              type="button"
-              onClick={expandAndSearch}
-              aria-label="Search chats or people"
-              title="Search chats or people"
-              className="inline-flex size-9 items-center justify-center rounded-full text-muted hover:bg-surface hover:text-fg"
-            >
-              <Search className="size-5" aria-hidden />
-            </button>
+            {canSearch && (
+              <button
+                type="button"
+                onClick={expandAndSearch}
+                aria-label="Search chats or people"
+                title="Search chats or people"
+                className="inline-flex size-9 items-center justify-center rounded-full text-muted hover:bg-surface hover:text-fg"
+              >
+                <Search className="size-5" aria-hidden />
+              </button>
+            )}
           </div>
         ) : (
           <div className="px-3 pt-4 pb-2">
@@ -57,38 +62,40 @@ export function ChatsPage() {
               <h1 className="text-xl font-semibold">Chats</h1>
               <SidebarToggle collapsed={false} onToggle={toggle} controls="chats-sidebar" />
             </div>
-            <div className="relative mt-3">
-              <Search
-                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted"
-                aria-hidden
-              />
-              <label htmlFor="chat-search" className="sr-only">
-                Search chats or people
-              </label>
-              <input
-                ref={searchInput}
-                id="chat-search"
-                type="search"
-                autoComplete="off"
-                maxLength={50}
-                placeholder="Search or start a new chat"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Escape' && setQuery('')}
-                className="w-full bg-transparent py-2 pr-9 pl-9 text-sm outline-none placeholder:text-muted [&::-webkit-search-cancel-button]:hidden"
-              />
-              {searching && (
-                <button
-                  type="button"
-                  onClick={() => setQuery('')}
-                  aria-label="Clear search"
-                  title="Clear search"
-                  className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full p-1 text-muted hover:text-fg"
-                >
-                  <X className="size-4" aria-hidden />
-                </button>
-              )}
-            </div>
+            {canSearch && (
+              <div className="relative mt-3">
+                <Search
+                  className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted"
+                  aria-hidden
+                />
+                <label htmlFor="chat-search" className="sr-only">
+                  Search chats or people
+                </label>
+                <input
+                  ref={searchInput}
+                  id="chat-search"
+                  type="search"
+                  autoComplete="off"
+                  maxLength={50}
+                  placeholder="Search or start a new chat"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Escape' && setQuery('')}
+                  className="w-full bg-transparent py-2 pr-9 pl-9 text-sm outline-none placeholder:text-muted [&::-webkit-search-cancel-button]:hidden"
+                />
+                {searching && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery('')}
+                    aria-label="Clear search"
+                    title="Clear search"
+                    className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full p-1 text-muted hover:text-fg"
+                  >
+                    <X className="size-4" aria-hidden />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
 

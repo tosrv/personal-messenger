@@ -191,13 +191,17 @@ func (h *Handler) fail(c *gin.Context, reason string, err error) {
 }
 
 func (h *Handler) setCookie(c *gin.Context, name, value, path string, maxAge int) {
+	writeCookie(c, name, value, path, maxAge, h.cfg.SecureCookies)
+}
+
+func writeCookie(c *gin.Context, name, value, path string, maxAge int, secure bool) {
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name:     name,
 		Value:    value,
 		Path:     path,
 		MaxAge:   maxAge,
 		HttpOnly: true,
-		Secure:   h.cfg.SecureCookies,
+		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
 	})
 }

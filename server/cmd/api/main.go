@@ -50,7 +50,7 @@ func main() {
 
 	sessions := auth.NewSessionStore(pool)
 	users := user.NewService(user.NewPostgresRepository(pool))
-	conversations := conversation.NewService(conversation.NewPostgresRepository(pool), users)
+	conversations := conversation.NewService(conversation.NewPostgresRepository(pool), users, cfg.OwnerUsername)
 	hub := realtime.NewHub()
 	notifier := realtime.NewNotifier(hub, conversations, logger)
 	messages := message.NewService(message.NewPostgresRepository(pool), conversations, notifier)
@@ -72,7 +72,11 @@ func main() {
 		logger.Warn("GOOGLE_CLIENT_ID is empty; sign-in is disabled")
 	}
 
-	go cleanExpiredSessions(ctx, sessions, logger)
+	if cfg.OwnerUsername == "" {
+		logger.Warn("OWNER_USERNAME is empty; guest mode is disabled")
+	}
+
+	go cleanUp(ctx, sessions, users, logger)
 
 	srv := &http.Server{
 		Addr: ":" + cfg.Port,
@@ -103,7 +107,11 @@ func main() {
 	logger.Info("server stopped")
 }
 
-func cleanExpiredSessions(ctx context.Context, sessions *auth.SessionStore, logger *slog.Logger) {
+// abandonedGuestAge is how long a guest who never sent a message is kept.
+const abandonedGuestAge = 7 * 24 * time.Hour
+
+// cleanUp removes expired sessions and abandoned guest accounts every hour.
+func cleanUp(ctx context.Context, sessions *auth.SessionStore, users *user.Service, logger *slog.Logger) {
 	ticker := time.NewTicker(time.Hour)
 	defer ticker.Stop()
 	for {
@@ -111,6 +119,11 @@ func cleanExpiredSessions(ctx context.Context, sessions *auth.SessionStore, logg
 			logger.Error("clean expired sessions", "err", err)
 		} else if n > 0 {
 			logger.Info("cleaned expired sessions", "count", n)
+		}
+		if n, err := users.DeleteAbandonedGuests(ctx, abandonedGuestAge); err != nil && ctx.Err() == nil {
+			logger.Error("clean abandoned guests", "err", err)
+		} else if n > 0 {
+			logger.Info("cleaned abandoned guests", "count", n)
 		}
 		select {
 		case <-ctx.Done():

@@ -1,7 +1,8 @@
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { LoadingState } from '../../components/States'
 import { safeRedirect } from '../../lib/redirect'
-import { googleLoginUrl, useMe } from './api'
+import { googleLoginUrl, useAppConfig, useMe } from './api'
+import { GuestSignIn } from './GuestSignIn'
 
 const errorMessages: Record<string, string> = {
   cancelled: 'Sign-in was cancelled.',
@@ -13,6 +14,7 @@ export function LoginPage() {
   const next = safeRedirect(params.get('next'))
   const error = params.get('error')
   const me = useMe()
+  const config = useAppConfig()
 
   if (me.isPending) return <LoadingState />
   if (me.data) return <Navigate to={next} replace />
@@ -42,6 +44,17 @@ export function LoginPage() {
         >
           Continue with Google
         </a>
+
+        {config.data?.guest_enabled && (
+          <>
+            <div className="my-8 flex items-center gap-3 text-xs text-muted" aria-hidden>
+              <span className="h-px flex-1 bg-line" />
+              or
+              <span className="h-px flex-1 bg-line" />
+            </div>
+            <GuestSignIn ownerUsername={config.data.owner_username} />
+          </>
+        )}
       </section>
     </div>
   )

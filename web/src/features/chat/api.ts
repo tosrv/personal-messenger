@@ -17,6 +17,7 @@ export type Peer = {
   username: string
   display_name: string
   avatar_url?: string
+  is_guest?: boolean
 }
 
 export type Conversation = {

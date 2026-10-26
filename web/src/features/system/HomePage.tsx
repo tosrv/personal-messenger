@@ -98,6 +98,11 @@ function HomeSection() {
             View source
           </a>
         </div>
+        {!signedIn && (
+          <Link to="/login" className="mt-4 text-sm text-muted hover:text-fg hover:underline">
+            No Google account? Chat as a guest →
+          </Link>
+        )}
 
         <ul className="mt-10 text-left">
           {highlights.map(({ icon: Icon, label, text }) => (

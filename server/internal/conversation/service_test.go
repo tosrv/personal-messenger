@@ -3,6 +3,7 @@ package conversation
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/tosrv/personal-messenger/server/internal/apperr"
@@ -16,6 +17,15 @@ func (f fakeUsers) GetProfile(_ context.Context, username string) (user.PublicPr
 		return p, nil
 	}
 	return user.PublicProfile{}, apperr.ErrNotFound
+}
+
+func (f fakeUsers) Me(_ context.Context, id int64) (user.Me, error) {
+	for _, p := range f {
+		if p.ID == id {
+			return user.Me{PublicProfile: p}, nil
+		}
+	}
+	return user.Me{}, apperr.ErrNotFound
 }
 
 type fakeRepo struct {
@@ -37,7 +47,7 @@ func TestStartDirect(t *testing.T) {
 	ctx := context.Background()
 
 	repo := &fakeRepo{}
-	svc := NewService(repo, users)
+	svc := NewService(repo, users, "tomy")
 
 	if _, err := svc.StartDirect(ctx, 1, "tomy"); !errors.Is(err, apperr.ErrInvalidInput) {
 		t.Errorf("self: err = %v, want ErrInvalidInput", err)
@@ -49,4 +59,60 @@ func TestStartDirect(t *testing.T) {
 	if err != nil || s.ID != 10 || len(repo.created) != 1 || repo.created[0] != [2]int64{1, 2} {
 		t.Errorf("start: %+v, %v, calls %v", s, err, repo.created)
 	}
+}
+
+func TestStartDirect_GuestsOnlyTalkToTheOwner(t *testing.T) {
+	users := fakeUsers{
+		"tomy":       {ID: 1, Username: "tomy"},
+		"alice":      {ID: 2, Username: "alice"},
+		"guest_1111": {ID: 3, Username: "guest_1111", IsGuest: true},
+		"guest_2222": {ID: 4, Username: "guest_2222", IsGuest: true},
+	}
+	ctx := context.Background()
+	cases := []struct {
+		name    string
+		viewer  int64
+		peer    string
+		allowed bool
+	}{
+		{"guest → owner", 3, "tomy", true},
+		{"guest → owner (any case)", 3, "TOMY", true},
+		{"guest → regular user", 3, "alice", false},
+		{"guest → guest", 3, "guest_2222", false},
+		{"owner → guest", 1, "guest_1111", true},
+		{"regular user → guest", 2, "guest_1111", false},
+		{"regular user → owner", 2, "tomy", true},
+	}
+	for _, tc := range cases {
+		svc := NewService(&fakeRepo{}, caseInsensitive(users), "tomy")
+		_, err := svc.StartDirect(ctx, tc.viewer, tc.peer)
+		if tc.allowed && err != nil {
+			t.Errorf("%s: unexpected error %v", tc.name, err)
+		}
+		if !tc.allowed && !errors.Is(err, apperr.ErrForbidden) {
+			t.Errorf("%s: err = %v, want ErrForbidden", tc.name, err)
+		}
+	}
+
+	// With no owner configured, guests cannot start any chat.
+	svc := NewService(&fakeRepo{}, users, "")
+	if _, err := svc.StartDirect(ctx, 3, "tomy"); !errors.Is(err, apperr.ErrForbidden) {
+		t.Errorf("no owner: err = %v, want ErrForbidden", err)
+	}
+}
+
+// caseInsensitive mimics the CITEXT username lookup of the real repository.
+type caseInsensitive fakeUsers
+
+func (c caseInsensitive) GetProfile(ctx context.Context, username string) (user.PublicProfile, error) {
+	for k, p := range c {
+		if strings.EqualFold(k, username) {
+			return p, nil
+		}
+	}
+	return user.PublicProfile{}, apperr.ErrNotFound
+}
+
+func (c caseInsensitive) Me(ctx context.Context, id int64) (user.Me, error) {
+	return fakeUsers(c).Me(ctx, id)
 }

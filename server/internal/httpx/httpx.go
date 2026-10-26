@@ -21,7 +21,8 @@ func Error(c *gin.Context, err error) {
 	case errors.Is(err, apperr.ErrUnauthorized):
 		status, msg = http.StatusUnauthorized, "unauthorized"
 	case errors.Is(err, apperr.ErrForbidden):
-		status, msg = http.StatusForbidden, "forbidden"
+		// Our own messages, e.g. "forbidden: guests can only chat with the owner".
+		status, msg = http.StatusForbidden, err.Error()
 	case errors.Is(err, apperr.ErrNotFound):
 		status, msg = http.StatusNotFound, "not found"
 	case errors.Is(err, apperr.ErrConflict):

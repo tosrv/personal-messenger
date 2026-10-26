@@ -1,4 +1,5 @@
 import { Avatar } from '../../components/Avatar'
+import { GuestBadge } from '../../components/GuestBadge'
 import { EmptyState, ErrorState, LoadingState } from '../../components/States'
 import { formatShortTime } from '../../lib/time'
 import { useMe } from '../auth/api'
@@ -85,7 +86,10 @@ export function ConversationList({
               <Avatar name={c.peer.display_name} src={c.peer.avatar_url} />
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline justify-between gap-2">
-                  <span className="truncate font-medium">{c.peer.display_name}</span>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="truncate font-medium">{c.peer.display_name}</span>
+                    {c.peer.is_guest && <GuestBadge />}
+                  </span>
                   {c.last_message && (
                     <span className="shrink-0 text-xs text-muted">
                       {formatShortTime(c.last_message.created_at)}

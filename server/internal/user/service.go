@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/tosrv/personal-messenger/server/internal/apperr"
 	"github.com/tosrv/personal-messenger/server/internal/auth"
@@ -29,6 +30,8 @@ type Repository interface {
 	Create(ctx context.Context, p GoogleProfile, username string) (User, error)
 	UpdateProfile(ctx context.Context, id int64, p ProfileUpdate) (User, error)
 	SearchByUsernamePrefix(ctx context.Context, prefix string, excludeID int64, limit int) ([]User, error)
+	CreateGuest(ctx context.Context, displayName, username string) (User, error)
+	DeleteAbandonedGuests(ctx context.Context, olderThan time.Duration) (int64, error)
 }
 
 // Service holds user business rules. It knows nothing about HTTP.
@@ -75,6 +78,40 @@ func (s *Service) EnsureGoogleUser(ctx context.Context, id auth.GoogleIdentity) 
 	return 0, fmt.Errorf("create user: no free username for base %q", base)
 }
 
+// CreateGuest makes a guest account (ADR 0008) with a generated username such
+// as guest_4821 and the display name the visitor chose.
+func (s *Service) CreateGuest(ctx context.Context, displayName string) (int64, error) {
+	name, err := normalizeDisplayName(displayName)
+	if err != nil {
+		return 0, fmt.Errorf("%w: %s", apperr.ErrInvalidInput, err)
+	}
+	for attempt := range maxUsernameAttempts {
+		u, err := s.repo.CreateGuest(ctx, name, usernameCandidate(guestUsernameBase, attempt+1))
+		if errors.Is(err, errUsernameTaken) {
+			continue
+		}
+		if err != nil {
+			return 0, fmt.Errorf("create guest: %w", err)
+		}
+		return u.ID, nil
+	}
+	return 0, fmt.Errorf("create guest: no free username")
+}
+
+// IsGuest reports whether userID is a guest account.
+func (s *Service) IsGuest(ctx context.Context, userID int64) (bool, error) {
+	u, err := s.repo.GetByID(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	return u.IsGuest, nil
+}
+
+// DeleteAbandonedGuests removes guests older than olderThan who never wrote.
+func (s *Service) DeleteAbandonedGuests(ctx context.Context, olderThan time.Duration) (int64, error) {
+	return s.repo.DeleteAbandonedGuests(ctx, olderThan)
+}
+
 func (s *Service) Me(ctx context.Context, userID int64) (Me, error) {
 	u, err := s.repo.GetByID(ctx, userID)
 	if err != nil {
@@ -90,6 +127,12 @@ func (s *Service) UpdateProfile(ctx context.Context, userID int64, p ProfileUpda
 		return Me{}, fmt.Errorf("%w: nothing to update", apperr.ErrInvalidInput)
 	}
 	if p.Username != nil {
+		// Guest usernames are generated and fixed; only their name can change.
+		if guest, err := s.IsGuest(ctx, userID); err != nil {
+			return Me{}, err
+		} else if guest {
+			return Me{}, fmt.Errorf("%w: guests cannot change their username", apperr.ErrForbidden)
+		}
 		username := strings.TrimPrefix(strings.TrimSpace(*p.Username), "@")
 		if err := validateUsername(username); err != nil {
 			return Me{}, fmt.Errorf("%w: %s", apperr.ErrInvalidInput, err)
@@ -132,6 +175,12 @@ func (s *Service) Search(ctx context.Context, query string, viewerID int64) ([]P
 	if len(query) < minQueryLen || len(query) > maxQueryLen || !queryPattern.MatchString(query) {
 		return nil, fmt.Errorf("%w: query must be %d-%d letters, digits or underscores",
 			apperr.ErrInvalidInput, minQueryLen, maxQueryLen)
+	}
+	// Guests may only talk to the owner, so they cannot look anyone up.
+	if guest, err := s.IsGuest(ctx, viewerID); err != nil {
+		return nil, err
+	} else if guest {
+		return nil, apperr.ErrForbidden
 	}
 	users, err := s.repo.SearchByUsernamePrefix(ctx, query, viewerID, maxSearchSize)
 	if err != nil {

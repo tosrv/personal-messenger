@@ -30,6 +30,7 @@ export async function api<T>(path: string, { json, headers, ...init }: ApiInit =
     const body = (await res.json().catch(() => ({}))) as { error?: string }
     throw new ApiError(res.status, body.error ?? res.statusText)
   }
-  if (res.status === 204) return undefined as T
-  return (await res.json()) as T
+  // Some successful responses have no body (204, or e.g. 201 from /auth/guest).
+  const text = await res.text()
+  return (text ? JSON.parse(text) : undefined) as T
 }

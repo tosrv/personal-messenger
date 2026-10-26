@@ -24,6 +24,8 @@ type Config struct {
 	// StaticDir holds the built frontend to serve (production image). Empty in
 	// development, where Vite serves the frontend.
 	StaticDir string
+	// OwnerUsername is who guests may chat with (ADR 0008). Empty disables guest mode.
+	OwnerUsername string
 }
 
 func (c Config) IsProduction() bool { return c.Env == "production" }
@@ -42,6 +44,7 @@ func Load() (Config, error) {
 		SessionSecret:      os.Getenv("SESSION_SECRET"),
 		TrustedProxies:     splitCSV(os.Getenv("TRUSTED_PROXIES")),
 		StaticDir:          os.Getenv("STATIC_DIR"),
+		OwnerUsername:      strings.TrimPrefix(strings.TrimSpace(os.Getenv("OWNER_USERNAME")), "@"),
 	}
 	if cfg.DatabaseURL == "" {
 		return cfg, fmt.Errorf("DATABASE_URL is required")

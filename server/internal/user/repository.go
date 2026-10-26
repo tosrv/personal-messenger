@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -12,7 +13,8 @@ import (
 	"github.com/tosrv/personal-messenger/server/internal/apperr"
 )
 
-const userColumns = `id, google_sub, email, display_name, coalesce(avatar_url, ''), username, created_at, updated_at`
+const userColumns = `id, coalesce(google_sub, ''), coalesce(email, ''), display_name,
+	coalesce(avatar_url, ''), username, is_guest, created_at, updated_at`
 
 // errUsernameTaken is returned by Create when the username is already used.
 var errUsernameTaken = errors.New("username taken")
@@ -82,10 +84,36 @@ func (r *PostgresRepository) UpdateProfile(ctx context.Context, id int64, p Prof
 	return u, err
 }
 
+// CreateGuest inserts a guest user. It returns errUsernameTaken if the
+// generated username is already used.
+func (r *PostgresRepository) CreateGuest(ctx context.Context, displayName, username string) (User, error) {
+	u, err := r.getOne(ctx,
+		`INSERT INTO users (display_name, username, is_guest) VALUES ($1, $2, true)
+		 RETURNING `+userColumns,
+		displayName, username)
+	if constraintViolated(err) == "users_username_key" {
+		return User{}, errUsernameTaken
+	}
+	return u, err
+}
+
+// DeleteAbandonedGuests removes guests older than olderThan that never sent
+// a message (with their sessions). Guests who did write stay, so the owner
+// keeps the conversation.
+func (r *PostgresRepository) DeleteAbandonedGuests(ctx context.Context, olderThan time.Duration) (int64, error) {
+	tag, err := r.db.Exec(ctx,
+		`DELETE FROM users u
+		 WHERE u.is_guest
+		   AND u.created_at < now() - make_interval(secs => $1)
+		   AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.sender_id = u.id)`,
+		olderThan.Seconds())
+	return tag.RowsAffected(), err
+}
+
 func (r *PostgresRepository) SearchByUsernamePrefix(ctx context.Context, prefix string, excludeID int64, limit int) ([]User, error) {
 	rows, err := r.db.Query(ctx,
 		`SELECT `+userColumns+` FROM users
-		 WHERE lower(username::text) LIKE $1 AND id <> $2
+		 WHERE lower(username::text) LIKE $1 AND id <> $2 AND NOT is_guest
 		 ORDER BY username
 		 LIMIT $3`,
 		escapeLike(strings.ToLower(prefix))+"%", excludeID, limit)
@@ -105,7 +133,7 @@ func (r *PostgresRepository) getOne(ctx context.Context, sql string, args ...any
 
 func scanUser(row pgx.Row) (User, error) {
 	var u User
-	err := row.Scan(&u.ID, &u.GoogleSub, &u.Email, &u.DisplayName, &u.AvatarURL, &u.Username, &u.CreatedAt, &u.UpdatedAt)
+	err := row.Scan(&u.ID, &u.GoogleSub, &u.Email, &u.DisplayName, &u.AvatarURL, &u.Username, &u.IsGuest, &u.CreatedAt, &u.UpdatedAt)
 	return u, err
 }
 

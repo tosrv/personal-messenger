@@ -6,6 +6,7 @@ export type PublicProfile = {
   username: string
   display_name: string
   avatar_url?: string
+  is_guest?: boolean
 }
 
 export const MIN_QUERY_LEN = 2

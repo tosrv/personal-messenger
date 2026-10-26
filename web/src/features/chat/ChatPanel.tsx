@@ -3,6 +3,7 @@ import { Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Avatar } from '../../components/Avatar'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { GuestBadge } from '../../components/GuestBadge'
 import { ErrorState, LoadingState } from '../../components/States'
 import { ApiError } from '../../lib/api'
 import { dayKey, formatDayLabel, formatTime } from '../../lib/time'
@@ -72,6 +73,7 @@ export function ChatPanel({
           <Avatar name={peer.display_name} src={peer.avatar_url} size="sm" />
           <span className="font-medium">{peer.display_name}</span>
         </Link>
+        {peer.is_guest && <GuestBadge />}
         <DeleteChatButton conversationId={conversationId} peer={peer} onDeleted={onDeleted} />
       </header>
       {/* key: a different chat gets fresh pending/scroll state. */}

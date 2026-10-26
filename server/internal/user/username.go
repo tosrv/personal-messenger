@@ -14,6 +14,9 @@ const (
 	minUsernameLen = 3
 	maxUsernameLen = 32
 	maxBaseLen     = 20 // leaves room for a numeric suffix
+	// Guests get guest_NNNN. "guest" alone is reserved, and Google users whose
+	// email starts with "guest" get "userguest…" instead (see usernameBase).
+	guestUsernameBase = "guest_"
 )
 
 var (
@@ -24,7 +27,7 @@ var (
 	reservedUsernames = map[string]bool{
 		"admin": true, "administrator": true, "api": true, "auth": true, "login": true,
 		"logout": true, "me": true, "messenger": true, "root": true, "search": true,
-		"settings": true, "support": true, "system": true,
+		"settings": true, "support": true, "system": true, "guest": true,
 	}
 )
 
@@ -33,7 +36,7 @@ func validateUsername(u string) error {
 	if !usernamePattern.MatchString(u) {
 		return fmt.Errorf("username must be %d-%d letters, digits or underscores", minUsernameLen, maxUsernameLen)
 	}
-	if reservedUsernames[strings.ToLower(u)] {
+	if lower := strings.ToLower(u); reservedUsernames[lower] || strings.HasPrefix(lower, "guest") {
 		return fmt.Errorf("username %q is reserved", u)
 	}
 	return nil
@@ -50,7 +53,7 @@ func usernameBase(email, displayName string) string {
 	if len(base) > maxBaseLen {
 		base = strings.TrimRight(base[:maxBaseLen], "_")
 	}
-	if len(base) < minUsernameLen || reservedUsernames[base] {
+	if len(base) < minUsernameLen || reservedUsernames[base] || strings.HasPrefix(base, "guest") {
 		base = "user" + base
 	}
 	return base

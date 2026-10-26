@@ -301,3 +301,31 @@ describe('delete chat', () => {
     expect(screen.getByRole('region', { name: 'Chat with Alice' })).toBeInTheDocument()
   })
 })
+
+describe('guests in chats', () => {
+  it('hides search from guests, who can only chat with the owner', async () => {
+    mockApi({
+      'GET /me': () => [
+        200,
+        { id: 9, username: 'guest_1234', display_name: 'Budi', is_guest: true },
+      ],
+      'GET /conversations': () => [200, { conversations: [conversations[0]] }],
+    })
+    renderWithProviders(<ChatsPage />, { path: '/chats', route: '/chats' })
+    await screen.findByRole('list', { name: 'Conversations' })
+    expect(screen.queryByLabelText('Search chats or people')).not.toBeInTheDocument()
+  })
+
+  it('marks guest contacts with a badge', async () => {
+    mockApi({
+      'GET /me': () => [200, me],
+      'GET /conversations': () => [
+        200,
+        { conversations: [{ ...conversations[0], peer: { ...peer(2, 'Budi'), is_guest: true } }] },
+      ],
+    })
+    renderWithProviders(<ChatsPage />, { path: '/chats', route: '/chats' })
+    const row = await screen.findByRole('button', { name: /Budi/ })
+    expect(row).toHaveTextContent('Guest')
+  })
+})

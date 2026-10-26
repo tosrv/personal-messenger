@@ -39,6 +39,8 @@ var rateRules = []middleware.RateRule{
 	{Route: "GET /api/v1/auth/callback", Limit: middleware.Limit{PerMinute: 10, Burst: 10}},
 	{Route: "GET /api/v1/users/search", Limit: middleware.Limit{PerMinute: 60, Burst: 20}},
 	{Route: "PATCH /api/v1/me", Limit: middleware.Limit{PerMinute: 10, Burst: 5}},
+	// Guest accounts need no Google login, so this is the spam entry point (ADR 0008).
+	{Route: "POST /api/v1/auth/guest", Limit: middleware.Limit{PerMinute: 3, Burst: 3}},
 	{Route: "POST /api/v1/conversations", Limit: middleware.Limit{PerMinute: 20, Burst: 10}},
 	{Route: "POST /api/v1/conversations/:id/messages", Limit: middleware.Limit{PerMinute: 30, Burst: 20}},
 }
@@ -81,6 +83,18 @@ func NewRouter(cfg config.Config, d Deps) *gin.Engine {
 	api.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
+	// Public settings the web app needs before sign-in.
+	api.GET("/config", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"google_enabled": d.Auth != nil,
+			"guest_enabled":  cfg.OwnerUsername != "",
+			"owner_username": cfg.OwnerUsername,
+		})
+	})
+
+	if cfg.OwnerUsername != "" {
+		auth.NewGuestHandler(d.Sessions, d.Users, cfg.IsProduction(), d.Logger).Register(api.Group("", limit))
+	}
 
 	if d.Auth != nil {
 		d.Auth.Register(api.Group("", limit))

@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router-dom'
 import { Avatar } from '../../components/Avatar'
+import { GuestBadge } from '../../components/GuestBadge'
 import { ErrorState, LoadingState } from '../../components/States'
 import { ApiError } from '../../lib/api'
 import { useMe } from '../auth/api'
@@ -38,7 +39,10 @@ function ProfileContent() {
     <section className="mx-auto flex max-w-xl flex-col items-center gap-3 px-4 py-12 text-center">
       <Avatar name={u.display_name} src={u.avatar_url} size="lg" />
       <h1 className="text-2xl font-semibold">{u.display_name}</h1>
-      <p className="text-muted">@{u.username}</p>
+      <p className="flex items-center gap-2 text-muted">
+        @{u.username}
+        {u.is_guest && <GuestBadge />}
+      </p>
       {isMe ? (
         <Link to="/settings/profile" className="mt-4 text-sm text-accent hover:underline">
           This is you · Edit profile

@@ -11,6 +11,7 @@ type User struct {
 	DisplayName string
 	AvatarURL   string
 	Username    string
+	IsGuest     bool // no Google account; may only chat with the owner (ADR 0008)
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -21,16 +22,19 @@ type PublicProfile struct {
 	Username    string `json:"username"`
 	DisplayName string `json:"display_name"`
 	AvatarURL   string `json:"avatar_url,omitempty"`
+	IsGuest     bool   `json:"is_guest,omitempty"`
 }
 
 // Me is the signed-in user's view of their own account.
 type Me struct {
 	PublicProfile
-	Email string `json:"email"`
+	Email string `json:"email,omitempty"` // empty for guests
 }
 
 func (u User) Public() PublicProfile {
-	return PublicProfile{ID: u.ID, Username: u.Username, DisplayName: u.DisplayName, AvatarURL: u.AvatarURL}
+	return PublicProfile{
+		ID: u.ID, Username: u.Username, DisplayName: u.DisplayName, AvatarURL: u.AvatarURL, IsGuest: u.IsGuest,
+	}
 }
 
 // ProfileUpdate holds the fields a user may change; nil means unchanged.

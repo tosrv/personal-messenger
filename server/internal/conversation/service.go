@@ -3,6 +3,7 @@ package conversation
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/tosrv/personal-messenger/server/internal/apperr"
 	"github.com/tosrv/personal-messenger/server/internal/user"
@@ -19,18 +20,27 @@ type Repository interface {
 	VisibleFrom(ctx context.Context, conversationID, userID int64) (int64, error)
 }
 
-// UserLookup resolves a username to a public profile (implemented by user.Service).
+// UserLookup resolves users (implemented by user.Service).
 type UserLookup interface {
 	GetProfile(ctx context.Context, username string) (user.PublicProfile, error)
+	Me(ctx context.Context, userID int64) (user.Me, error)
 }
 
 type Service struct {
 	repo  Repository
 	users UserLookup
+	// owner is the username guests may talk to (ADR 0008). Empty = nobody.
+	owner string
 }
 
-func NewService(repo Repository, users UserLookup) *Service {
-	return &Service{repo: repo, users: users}
+func NewService(repo Repository, users UserLookup, ownerUsername string) *Service {
+	return &Service{repo: repo, users: users, owner: ownerUsername}
+}
+
+var errGuestsOwnerOnly = fmt.Errorf("%w: guests can only chat with the owner", apperr.ErrForbidden)
+
+func (s *Service) isOwner(username string) bool {
+	return s.owner != "" && strings.EqualFold(username, s.owner)
 }
 
 // StartDirect opens the viewer's conversation with username, creating it if
@@ -42,6 +52,17 @@ func (s *Service) StartDirect(ctx context.Context, viewerID int64, username stri
 	}
 	if peer.ID == viewerID {
 		return Summary{}, fmt.Errorf("%w: you cannot start a conversation with yourself", apperr.ErrInvalidInput)
+	}
+	// Guests only ever talk to the owner, in both directions (ADR 0008).
+	viewer, err := s.users.Me(ctx, viewerID)
+	if err != nil {
+		return Summary{}, fmt.Errorf("load viewer: %w", err)
+	}
+	if viewer.IsGuest && !s.isOwner(peer.Username) {
+		return Summary{}, errGuestsOwnerOnly
+	}
+	if peer.IsGuest && !s.isOwner(viewer.Username) {
+		return Summary{}, errGuestsOwnerOnly
 	}
 	id, err := s.repo.GetOrCreateDirect(ctx, viewerID, peer.ID)
 	if err != nil {

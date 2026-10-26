@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/tosrv/personal-messenger/server/internal/apperr"
 	"github.com/tosrv/personal-messenger/server/internal/database/dbtest"
@@ -78,6 +79,70 @@ func TestPostgresRepository(t *testing.T) {
 		got, _ = repo.SearchByUsernamePrefix(ctx, "_", 0, 10)
 		if len(got) != 0 {
 			t.Errorf("wildcard matched: %+v", got)
+		}
+	})
+}
+
+func TestGuests(t *testing.T) {
+	pool := dbtest.New(t)
+	repo := NewPostgresRepository(pool)
+	ctx := context.Background()
+
+	owner, err := repo.Create(ctx, GoogleProfile{Subject: "g-owner", Email: "o@example.com", DisplayName: "Owner"}, "tomy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	quiet, err := repo.CreateGuest(ctx, "Quiet", "guest_1111")
+	if err != nil || !quiet.IsGuest || quiet.Email != "" || quiet.GoogleSub != "" {
+		t.Fatalf("CreateGuest = %+v, %v", quiet, err)
+	}
+	chatty, _ := repo.CreateGuest(ctx, "Chatty", "guest_2222")
+	if _, err := repo.CreateGuest(ctx, "Dup", "guest_2222"); !errors.Is(err, errUsernameTaken) {
+		t.Errorf("duplicate guest username: err = %v", err)
+	}
+
+	t.Run("non-guests still need a Google identity", func(t *testing.T) {
+		_, err := pool.Exec(ctx, `INSERT INTO users (display_name, username) VALUES ('x', 'nobody')`)
+		if constraintViolated(err) != "" || err == nil {
+			// CHECK violations are 23514, not unique violations; any error is fine here.
+			if err == nil {
+				t.Error("insert without google_sub/email succeeded")
+			}
+		}
+	})
+
+	t.Run("guests are not searchable", func(t *testing.T) {
+		got, _ := repo.SearchByUsernamePrefix(ctx, "guest", owner.ID, 10)
+		if len(got) != 0 {
+			t.Errorf("search returned guests: %+v", got)
+		}
+	})
+
+	t.Run("cleanup removes only old guests who never wrote", func(t *testing.T) {
+		var conv int64
+		if err := pool.QueryRow(ctx, `INSERT INTO conversations (direct_key) VALUES ('x') RETURNING id`).Scan(&conv); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO messages (conversation_id, sender_id, client_message_id, body) VALUES ($1, $2, gen_random_uuid(), 'hi')`,
+			conv, chatty.ID); err != nil {
+			t.Fatal(err)
+		}
+		if n, _ := repo.DeleteAbandonedGuests(ctx, time.Hour); n != 0 {
+			t.Errorf("deleted %d fresh guests", n)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE users SET created_at = now() - interval '2 days' WHERE is_guest`); err != nil {
+			t.Fatal(err)
+		}
+		n, err := repo.DeleteAbandonedGuests(ctx, 24*time.Hour)
+		if err != nil || n != 1 {
+			t.Fatalf("deleted %d, %v; want 1 (the quiet guest)", n, err)
+		}
+		if _, err := repo.GetByID(ctx, quiet.ID); !errors.Is(err, apperr.ErrNotFound) {
+			t.Errorf("quiet guest still exists: %v", err)
+		}
+		if _, err := repo.GetByID(ctx, chatty.ID); err != nil {
+			t.Errorf("guest with messages was deleted: %v", err)
 		}
 	})
 }

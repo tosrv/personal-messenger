@@ -122,7 +122,8 @@ To build the production image locally: `docker build -t personal-messenger .`
 - Google OpenID Connect with `state`, `nonce` and PKCE; sessions are opaque tokens stored hashed ([ADR 0001](docs/adr/0001-database-backed-sessions.md)).
 - Cookies are `HttpOnly`, `SameSite=Lax`, and `Secure` in production. Origin checks block CSRF and cross-site WebSockets.
 - Every conversation and message access is checked for membership on the server.
-- Rate limits on sign-in, search, starting conversations and sending messages; messages are capped at 4,000 characters.
+- Rate limits on sign-in, guest creation, search, starting conversations and sending messages; messages are capped at 4,000 characters.
+- Optional guest mode ([ADR 0008](docs/adr/0008-guest-mode.md)): visitors without a Google account can chat with the owner only.
 - HTTPS with HSTS, a strict Content Security Policy, and logs that never contain tokens, emails or message bodies.
 
 ## Documentation

@@ -27,4 +27,9 @@ describe('api', () => {
     await expect(api('/missing')).rejects.toMatchObject({ status: 404, message: 'not found' })
     await expect(api('/missing')).rejects.toBeInstanceOf(ApiError)
   })
+
+  it('returns undefined for a successful response without a body', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 201 }))
+    await expect(api('/auth/guest', { method: 'POST' })).resolves.toBeUndefined()
+  })
 })

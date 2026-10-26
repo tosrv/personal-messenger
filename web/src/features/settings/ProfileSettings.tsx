@@ -21,7 +21,14 @@ export function ProfileSettings() {
     <SettingsPanel
       title="Profile"
       description={
-        <>Signed in with Google as {me.data.email}. Your email is never shown to other users.</>
+        me.data.is_guest ? (
+          <>
+            You are chatting as a guest. This account only works in this browser; signing out or
+            clearing site data ends it.
+          </>
+        ) : (
+          <>Signed in with Google as {me.data.email}. Your email is never shown to other users.</>
+        )
       }
     >
       <ProfileForm me={me.data} />
@@ -95,27 +102,29 @@ function ProfileForm({ me }: { me: Me }) {
           />
         </div>
 
-        <div>
-          <label htmlFor="username" className="block text-sm font-medium">
-            Username
-          </label>
-          <p id="username-hint" className="text-sm text-muted">
-            3–32 letters, digits or underscores. Others find you and link to you with it.
-          </p>
-          <input
-            id="username"
-            value={username}
-            onChange={(e) => {
-              setUsername(e.target.value)
-              edited()
-            }}
-            required
-            pattern={USERNAME_PATTERN}
-            autoComplete="off"
-            aria-describedby="username-hint"
-            className={inputClass}
-          />
-        </div>
+        {!me.is_guest && (
+          <div>
+            <label htmlFor="username" className="block text-sm font-medium">
+              Username
+            </label>
+            <p id="username-hint" className="text-sm text-muted">
+              3–32 letters, digits or underscores. Others find you and link to you with it.
+            </p>
+            <input
+              id="username"
+              value={username}
+              onChange={(e) => {
+                setUsername(e.target.value)
+                edited()
+              }}
+              required
+              pattern={USERNAME_PATTERN}
+              autoComplete="off"
+              aria-describedby="username-hint"
+              className={inputClass}
+            />
+          </div>
+        )}
 
         <div className="flex items-center gap-3">
           <button

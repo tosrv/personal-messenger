@@ -14,11 +14,12 @@ erDiagram
 
     users {
         bigint id PK
-        text google_sub UK "Google OIDC subject"
-        text email "private, never returned to other users"
+        text google_sub UK "Google OIDC subject; null for guests"
+        text email "private; null for guests"
         text display_name
         text avatar_url "nullable"
         citext username UK "3-32 chars: a-z, 0-9, _"
+        boolean is_guest "guest mode (ADR 0008)"
         boolean display_name_customized "user edited the name"
         timestamptz created_at
         timestamptz updated_at
@@ -63,6 +64,7 @@ erDiagram
 | `google_sub` unique | Google's stable account ID. Accounts are matched by this, not by email, so an email change never creates a duplicate account (PRD §6.1). |
 | `email` | Kept for the owner's records. Never included in public profiles or search results. |
 | `display_name` + `display_name_customized` | Starts as the Google name and is refreshed on each sign-in, until the user edits it in settings. From then on `display_name_customized` is true and sign-in keeps the user's choice (migration 000002). |
+| `is_guest` + `users_identity_check` | Guests ([ADR 0008](adr/0008-guest-mode.md), migration 000004) have no Google identity or email; the CHECK keeps both required for everyone else. Guests who never wrote are deleted after 7 days. |
 | `username` `CITEXT` unique + `CHECK` | Case-insensitive uniqueness: `Tomy` and `tomy` cannot both exist. The check enforces the allowed format at the database level as well as in the service. |
 
 ### `sessions`

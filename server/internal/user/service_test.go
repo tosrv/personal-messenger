@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tosrv/personal-messenger/server/internal/apperr"
 	"github.com/tosrv/personal-messenger/server/internal/auth"
@@ -78,9 +79,28 @@ func (f *fakeRepo) UpdateProfile(_ context.Context, id int64, p ProfileUpdate) (
 	return f.users[i], nil
 }
 
+func (f *fakeRepo) CreateGuest(_ context.Context, displayName, username string) (User, error) {
+	if _, ok := f.find(func(u User) bool { return strings.EqualFold(u.Username, username) }); ok {
+		return User{}, errUsernameTaken
+	}
+	u := User{ID: int64(len(f.users) + 1), DisplayName: displayName, Username: username, IsGuest: true}
+	f.users = append(f.users, u)
+	return u, nil
+}
+
+func (f *fakeRepo) DeleteAbandonedGuests(context.Context, time.Duration) (int64, error) {
+	return 0, nil
+}
+
 func (f *fakeRepo) SearchByUsernamePrefix(_ context.Context, prefix string, excludeID int64, _ int) ([]User, error) {
 	f.gotPrefix, f.gotExcluded = prefix, excludeID
-	return f.users, nil
+	var out []User
+	for _, u := range f.users {
+		if u.ID != excludeID && !u.IsGuest {
+			out = append(out, u)
+		}
+	}
+	return out, nil
 }
 
 func TestEnsureGoogleUser_CreatesOnceAndMatchesBySubject(t *testing.T) {
@@ -185,7 +205,7 @@ func TestSearch_RejectsInvalidQuery(t *testing.T) {
 }
 
 func TestSearch_NormalizesAndExcludesViewer(t *testing.T) {
-	repo := &fakeRepo{users: []User{{ID: 2, Username: "tomy", Email: "secret@example.com"}}}
+	repo := &fakeRepo{users: []User{{ID: 2, Username: "tomy", Email: "secret@example.com"}, {ID: 7, Username: "viewer"}}}
 	svc := NewService(repo)
 
 	got, err := svc.Search(context.Background(), "  @tom ", 7)
@@ -204,5 +224,51 @@ func TestGetProfile_NotFound(t *testing.T) {
 	svc := NewService(&fakeRepo{})
 	if _, err := svc.GetProfile(context.Background(), "nobody"); !errors.Is(err, apperr.ErrNotFound) {
 		t.Errorf("err = %v, want ErrNotFound", err)
+	}
+}
+
+func TestCreateGuest(t *testing.T) {
+	repo := &fakeRepo{}
+	svc := NewService(repo)
+	ctx := context.Background()
+
+	id, err := svc.CreateGuest(ctx, "  Budi   Santoso ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, _ := repo.GetByID(ctx, id)
+	if !u.IsGuest || u.DisplayName != "Budi Santoso" || !strings.HasPrefix(u.Username, "guest_") || u.Email != "" {
+		t.Errorf("guest = %+v", u)
+	}
+	if _, err := svc.CreateGuest(ctx, "   "); !errors.Is(err, apperr.ErrInvalidInput) {
+		t.Errorf("empty name: err = %v", err)
+	}
+}
+
+func TestGuestRestrictions(t *testing.T) {
+	repo := &fakeRepo{users: []User{
+		{ID: 1, Username: "tomy"},
+		{ID: 2, Username: "guest_1234", DisplayName: "Budi", IsGuest: true},
+	}}
+	svc := NewService(repo)
+	ctx := context.Background()
+
+	if _, err := svc.Search(ctx, "to", 2); !errors.Is(err, apperr.ErrForbidden) {
+		t.Errorf("guest search: err = %v, want ErrForbidden", err)
+	}
+	if _, err := svc.UpdateProfile(ctx, 2, ProfileUpdate{Username: ptr("budi")}); !errors.Is(err, apperr.ErrForbidden) {
+		t.Errorf("guest username change: err = %v, want ErrForbidden", err)
+	}
+	if me, err := svc.UpdateProfile(ctx, 2, ProfileUpdate{DisplayName: ptr("Budi S")}); err != nil || me.DisplayName != "Budi S" {
+		t.Errorf("guest name change: %+v, %v", me, err)
+	}
+	// Nobody else can claim a guest-looking username.
+	for _, name := range []string{"guest", "Guest_9999", "guestbook"} {
+		if _, err := svc.UpdateProfile(ctx, 1, ProfileUpdate{Username: ptr(name)}); !errors.Is(err, apperr.ErrInvalidInput) {
+			t.Errorf("%q: err = %v, want ErrInvalidInput", name, err)
+		}
+	}
+	if base := usernameBase("guest_7777@gmail.com", ""); !strings.HasPrefix(base, "user") {
+		t.Errorf("google user from guest-like email got base %q", base)
 	}
 }

@@ -81,7 +81,7 @@ func (r *PostgresRepository) MemberIDs(ctx context.Context, conversationID int64
 // from the peer that are newer than the viewer's read marker.
 const summarySQL = `
 SELECT c.id, c.created_at, me.last_read_message_id,
-       u.id, u.username, u.display_name, coalesce(u.avatar_url, ''),
+       u.id, u.username, u.display_name, coalesce(u.avatar_url, ''), u.is_guest,
        lm.id, lm.sender_id, lm.body, lm.created_at,
        (SELECT count(*) FROM messages m
          WHERE m.conversation_id = c.id
@@ -174,7 +174,7 @@ func scanSummary(row pgx.Row) (Summary, error) {
 		lmAt     *time.Time
 	)
 	err := row.Scan(&s.ID, &s.CreatedAt, &lastRead,
-		&s.Peer.ID, &s.Peer.Username, &s.Peer.DisplayName, &s.Peer.AvatarURL,
+		&s.Peer.ID, &s.Peer.Username, &s.Peer.DisplayName, &s.Peer.AvatarURL, &s.Peer.IsGuest,
 		&lmID, &lmSender, &lmBody, &lmAt, &s.UnreadCount)
 	if err != nil {
 		return Summary{}, err

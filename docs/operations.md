@@ -62,7 +62,10 @@ POSTGRES_PASSWORD=<openssl rand -hex 24>
 SESSION_SECRET=<openssl rand -base64 48>
 GOOGLE_CLIENT_ID=<from 1.2>
 GOOGLE_CLIENT_SECRET=<from 1.2>
+OWNER_USERNAME=<your username>   # guest mode: visitors without Google may chat with you; empty = off
 ```
+
+Set `OWNER_USERNAME` after step 1.6, once you have chosen your username, then run `docker compose up -d` again.
 
 Everything else (`APP_ENV`, `DATABASE_URL`, `ALLOWED_ORIGINS`, `GOOGLE_REDIRECT_URL`, `TRUSTED_PROXIES`) is derived in `compose.yaml`.
 

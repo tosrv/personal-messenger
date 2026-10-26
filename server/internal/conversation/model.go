@@ -10,6 +10,7 @@ type Peer struct {
 	Username    string `json:"username"`
 	DisplayName string `json:"display_name"`
 	AvatarURL   string `json:"avatar_url,omitempty"`
+	IsGuest     bool   `json:"is_guest,omitempty"`
 }
 
 type LastMessage struct {
