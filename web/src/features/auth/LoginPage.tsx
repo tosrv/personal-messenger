@@ -21,25 +21,28 @@ export function LoginPage() {
   const target = /^\/u\/([A-Za-z0-9_]{3,32})$/.exec(next)?.[1]
 
   return (
-    <section className="mx-auto max-w-sm px-4 py-16 text-center">
-      <h1 className="text-2xl font-semibold">
-        {target ? `Sign in to chat with @${target}` : 'Sign in'}
-      </h1>
-      <p className="mt-2 text-muted">
-        Use your Google account. No new password needed, and your email is never shown to other
-        users.
-      </p>
-      {error && (
-        <p role="alert" className="mt-4 text-danger">
-          {errorMessages[error] ?? errorMessages.signin_failed}
+    // Framed by the same side rules as the other pages; content centred both ways.
+    <div className="mx-auto flex min-h-full max-w-5xl items-center justify-center border-line px-4 py-16 md:border-x">
+      <section className="w-full max-w-sm text-center">
+        <h1 className="text-2xl font-semibold">
+          {target ? `Sign in to chat with @${target}` : 'Sign in'}
+        </h1>
+        <p className="mt-2 text-muted">
+          Use your Google account. No new password needed, and your email is never shown to other
+          users.
         </p>
-      )}
-      <a
-        href={googleLoginUrl(next)}
-        className="mt-8 inline-block rounded-lg bg-accent px-5 py-2.5 font-medium text-accent-fg hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-      >
-        Continue with Google
-      </a>
-    </section>
+        {error && (
+          <p role="alert" className="mt-4 text-danger">
+            {errorMessages[error] ?? errorMessages.signin_failed}
+          </p>
+        )}
+        <a
+          href={googleLoginUrl(next)}
+          className="mt-8 inline-block rounded-lg bg-accent px-5 py-2.5 font-medium text-accent-fg hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
+          Continue with Google
+        </a>
+      </section>
+    </div>
   )
 }
