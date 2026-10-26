@@ -1,8 +1,14 @@
 import { Code, KeyRound, MessageCircle, SendHorizontal, Server, Zap } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { googleLoginUrl, useMe } from '../auth/api'
-
-const REPO_URL = 'https://github.com/tosrv/personal-messenger'
+import { LandingNav } from './LandingNav'
+import {
+  ClosingSection,
+  FeaturesSection,
+  HowItWorksSection,
+  REPO_URL,
+  StackSection,
+} from './LandingSections'
 
 const highlights = [
   { icon: Zap, label: 'Real-time', text: 'Messages arrive instantly over WebSocket.' },
@@ -10,13 +16,33 @@ const highlights = [
   { icon: Server, label: 'Self-hosted', text: 'Runs on its own server, data in PostgreSQL.' },
 ]
 
-/** Landing page. Home section: what this is, and one click to start chatting. */
+/**
+ * Landing page, drawn in the same line style as the chats page: one column
+ * framed by vertical rules, sections separated by horizontal rules.
+ */
 export function HomePage() {
   return (
-    <div className="relative isolate h-full overflow-hidden">
-      <GridLines />
-      <HomeSection />
-    </div>
+    <>
+      {/* Sticky inside the same scroll area as the page, so the navbar's side
+          rules always line up with the page's (the scrollbar takes width from both). */}
+      <header className="sticky top-0 z-20 border-b border-line bg-bg/85 backdrop-blur">
+        <LandingNav />
+      </header>
+      <div className="mx-auto max-w-7xl border-line md:border-x">
+        {/* Home: fills most of the first screen, content centred vertically. */}
+        <div
+          id="home"
+          className="relative isolate flex min-h-[80dvh] items-center overflow-hidden border-b border-line"
+        >
+          <GridLines />
+          <HomeSection />
+        </div>
+        <FeaturesSection />
+        <HowItWorksSection />
+        <StackSection />
+        <ClosingSection />
+      </div>
+    </>
   )
 }
 
@@ -27,12 +53,13 @@ function HomeSection() {
   return (
     <section
       aria-labelledby="home-title"
-      className="mx-auto grid max-w-5xl items-center gap-12 px-4 py-14 md:grid-cols-2 md:py-20"
+      className="grid w-full items-center gap-12 px-6 py-14 md:grid-cols-2 md:px-10 md:py-20"
     >
-      <div>
+      {/* Centred when stacked on phones, left-aligned beside the preview on wide screens. */}
+      <div className="flex flex-col items-center text-center md:items-start md:text-left">
         <h1
           id="home-title"
-          className="mt-5 text-4xl leading-tight font-semibold tracking-tight sm:text-5xl"
+          className="text-4xl leading-tight font-semibold tracking-tight sm:text-5xl"
         >
           A messenger
           <br />
@@ -43,7 +70,7 @@ function HomeSection() {
           username and start a conversation in seconds.
         </p>
 
-        <div className="mt-8 flex flex-wrap items-center gap-3">
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3 md:justify-start">
           {signedIn ? (
             <Link
               to="/chats"
@@ -72,7 +99,7 @@ function HomeSection() {
           </a>
         </div>
 
-        <ul className="mt-10">
+        <ul className="mt-10 text-left">
           {highlights.map(({ icon: Icon, label, text }) => (
             <li key={label} className="flex items-start gap-3 py-3">
               <Icon className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />

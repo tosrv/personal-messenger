@@ -14,28 +14,31 @@ describe('Layout navbar', () => {
   beforeEach(() => vi.stubGlobal('WebSocket', NoopSocket))
   afterEach(() => vi.unstubAllGlobals())
 
-  it('has only Chats and the settings avatar, as icons with accessible names', async () => {
+  it('has only the brand and the settings avatar', async () => {
     mockApi({ 'GET /me': () => [200, me] })
-    renderWithProviders(<Layout />, { route: '/' })
+    renderWithProviders(<Layout />, { path: '*', route: '/chats' })
 
     const nav = screen.getByRole('navigation', { name: 'Main' })
-    const chats = within(nav).getByRole('link', { name: 'Chats' })
     const profile = await within(nav).findByRole('link', { name: 'Settings (@tomy)' })
-
-    expect(chats).toHaveAttribute('href', '/chats')
     expect(profile).toHaveAttribute('href', '/settings')
-    for (const el of [chats, profile]) {
-      expect(el).toHaveAttribute('title') // hover tooltip
-      expect(el.textContent?.trim().replace(/^T$/, '')).toBe('') // no visible text label
-    }
-    // Search lives in the chats page and sign-out in settings.
-    expect(within(nav).queryByRole('link', { name: /search/i })).not.toBeInTheDocument()
+    expect(profile).toHaveAttribute('title') // hover tooltip
+    expect(within(nav).getByRole('link', { name: 'Messenger' })).toHaveAttribute('href', '/')
+    // No Chats icon (the brand leads to chats), no search, no sign-out.
+    expect(within(nav).getAllByRole('link')).toHaveLength(2)
     expect(within(nav).queryByRole('button', { name: /sign out/i })).not.toBeInTheDocument()
   })
 
-  it('shows a sign-in icon when signed out', async () => {
+  it('shows a sign-in icon when signed out inside the app', async () => {
     mockApi({ 'GET /me': () => [401, { error: 'unauthorized' }] })
-    renderWithProviders(<Layout />, { route: '/' })
+    renderWithProviders(<Layout />, { path: '*', route: '/u/tomy' })
     expect(await screen.findByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login')
+  })
+
+  it('leaves the navbar to the landing page on "/"', async () => {
+    mockApi({ 'GET /me': () => [401, { error: 'unauthorized' }] })
+    renderWithProviders(<Layout />, { path: '*', route: '/' })
+    // Wait for the session check, then make sure the app navbar is not shown.
+    await vi.waitFor(() => expect(screen.queryByRole('link', { name: 'Chats' })).toBeNull())
+    expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument()
   })
 })

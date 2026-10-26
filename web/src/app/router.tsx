@@ -8,8 +8,7 @@ import { AppearanceSettings } from '../features/settings/AppearanceSettings'
 import { LanguageSettings } from '../features/settings/LanguageSettings'
 import { ProfileSettings } from '../features/settings/ProfileSettings'
 import { SettingsLayout } from '../features/settings/SettingsLayout'
-import { SignOutSettings } from '../features/settings/SignOutSettings'
-import { HomePage } from '../features/system/HomePage'
+import { HomeRoute } from '../features/system/HomeRoute'
 import { ProfilePage } from '../features/users/ProfilePage'
 import { Layout } from './Layout'
 
@@ -17,7 +16,8 @@ export const router = createBrowserRouter([
   {
     element: <Layout />,
     children: [
-      { path: '/', element: <HomePage /> },
+      // Visitors see the landing page; signed-in users are sent to /chats.
+      { path: '/', element: <HomeRoute /> },
       { path: '/login', element: <LoginPage /> },
       {
         // Everything below requires a session; visitors are sent to /login?next=…
@@ -37,7 +37,6 @@ export const router = createBrowserRouter([
               { path: 'profile', element: <ProfileSettings /> },
               { path: 'appearance', element: <AppearanceSettings /> },
               { path: 'language', element: <LanguageSettings /> },
-              { path: 'sign-out', element: <SignOutSettings /> },
               { path: '*', element: <Navigate to="/settings" replace /> },
             ],
           },

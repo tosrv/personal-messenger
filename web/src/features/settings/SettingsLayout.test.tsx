@@ -1,13 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createMemoryRouter, RouterProvider } from 'react-router-dom'
+import { createMemoryRouter, Navigate, RouterProvider } from 'react-router-dom'
 import { mockApi } from '../../test/mockApi'
 import { AppearanceSettings } from './AppearanceSettings'
 import { LanguageSettings } from './LanguageSettings'
 import { ProfileSettings } from './ProfileSettings'
 import { SettingsLayout } from './SettingsLayout'
-import { SignOutSettings } from './SignOutSettings'
 
 const me = { id: 1, username: 'tomy', display_name: 'Tomy', email: 't@x.com' }
 
@@ -22,7 +21,7 @@ function renderSettings(path = '/settings') {
           { path: 'profile', element: <ProfileSettings /> },
           { path: 'appearance', element: <AppearanceSettings /> },
           { path: 'language', element: <LanguageSettings /> },
-          { path: 'sign-out', element: <SignOutSettings /> },
+          { path: '*', element: <Navigate to="/settings" replace /> },
         ],
       },
       { path: '/', element: <p>home page</p> },
@@ -44,7 +43,7 @@ describe('SettingsLayout', () => {
     localStorage.clear()
   })
 
-  it('lists Profile, Appearance, Language and Sign out, and opens Profile by default', async () => {
+  it('lists Profile, Appearance and Language, and opens Profile by default', async () => {
     mockApi({ 'GET /me': () => [200, me] })
     renderSettings()
 
@@ -52,9 +51,35 @@ describe('SettingsLayout', () => {
     const names = within(menu)
       .getAllByRole('link')
       .map((a) => a.textContent)
-    expect(names).toEqual(['Profile', 'Appearance', 'Language', 'Sign out'])
+    expect(names).toEqual(['Profile', 'Appearance', 'Language'])
     expect(await screen.findByRole('heading', { name: 'Profile' })).toBeInTheDocument()
     expect(screen.getByLabelText('Name')).toHaveValue('Tomy')
+  })
+
+  it('pins a Sign out button to the bottom that signs out at once', async () => {
+    let signedOut = false
+    mockApi({
+      'GET /me': () => (signedOut ? [401, { error: 'unauthorized' }] : [200, me]),
+      'POST /auth/logout': () => {
+        signedOut = true
+        return [204]
+      },
+    })
+    renderSettings()
+
+    const menu = screen.getByRole('navigation', { name: 'Settings' })
+    const [main, bottom] = within(menu).getAllByRole('list')
+    expect(within(main).queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
+    await userEvent.click(within(bottom).getByRole('button', { name: 'Sign out' }))
+
+    expect(signedOut).toBe(true)
+    expect(await screen.findByText('home page')).toBeInTheDocument()
+  })
+
+  it('sends the old /settings/sign-out page back to settings', async () => {
+    mockApi({ 'GET /me': () => [200, me] })
+    const router = renderSettings('/settings/sign-out')
+    await vi.waitFor(() => expect(router.state.location.pathname).toBe('/settings'))
   })
 
   it('navigates between sections from the menu', async () => {
@@ -115,24 +140,5 @@ describe('SettingsLayout', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }))
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument()
-  })
-
-  it('signs out from its own section', async () => {
-    let signedOut = false
-    mockApi({
-      'GET /me': () => (signedOut ? [401, { error: 'unauthorized' }] : [200, me]),
-      'POST /auth/logout': () => {
-        signedOut = true
-        return [204]
-      },
-    })
-    renderSettings('/settings/sign-out')
-
-    const panel = await screen.findByRole('region', { name: 'Sign out' })
-    expect(await within(panel).findByText('@tomy')).toBeInTheDocument()
-    await userEvent.click(within(panel).getByRole('button', { name: 'Sign out' }))
-
-    expect(signedOut).toBe(true)
-    expect(await screen.findByText('home page')).toBeInTheDocument()
   })
 })

@@ -6,7 +6,19 @@ import { useMe } from '../auth/api'
 import { useStartConversation } from '../chat/api'
 import { useProfile } from './api'
 
+/**
+ * Public profile, framed by the same side rules as the navbar, chats and
+ * settings (every state: loading, not found, error, profile).
+ */
 export function ProfilePage() {
+  return (
+    <div className="mx-auto min-h-full max-w-5xl border-line md:border-x">
+      <ProfileContent />
+    </div>
+  )
+}
+
+function ProfileContent() {
   const { username = '' } = useParams()
   const profile = useProfile(username)
   const me = useMe()
