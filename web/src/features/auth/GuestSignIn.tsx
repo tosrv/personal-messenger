@@ -2,6 +2,7 @@ import { UserRound } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useGuestSignIn } from './api'
 import { GUEST_RETENTION_NOTE } from './guestPolicy'
+import { Button } from '@/components/ui/button'
 
 const MAX_NAME = 50
 
@@ -45,14 +46,10 @@ export function GuestSignIn({ ownerUsername }: { ownerUsername: string }) {
           required
           className="min-w-0 flex-1 rounded-lg border border-line bg-transparent px-3 py-2 outline-none placeholder:text-muted focus:border-accent"
         />
-        <button
-          type="submit"
-          disabled={!canSubmit}
-          className="inline-flex items-center gap-2 rounded-lg border border-line px-4 py-2 font-medium hover:bg-surface disabled:opacity-50"
-        >
+        <Button type="submit" variant="outline" disabled={!canSubmit}>
           <UserRound className="size-4" aria-hidden />
           {guest.isPending ? 'Starting…' : 'Start chat'}
-        </button>
+        </Button>
       </div>
       {guest.isError && (
         <p role="alert" className="mt-2 text-sm text-danger">

@@ -1,6 +1,7 @@
 import { SendHorizontal } from 'lucide-react'
 import { useState, type FormEvent, type KeyboardEvent } from 'react'
 import { MAX_MESSAGE_LENGTH } from './api'
+import { Button } from '@/components/ui/button'
 
 /** Message input. Enter sends, Shift+Enter adds a new line. */
 export function Composer({ onSend }: { onSend: (body: string) => void }) {
@@ -42,15 +43,9 @@ export function Composer({ onSend }: { onSend: (body: string) => void }) {
           {remaining}
         </span>
       )}
-      <button
-        type="submit"
-        disabled={!canSend}
-        aria-label="Send"
-        title="Send (Enter)"
-        className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-accent-fg hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-40"
-      >
+      <Button type="submit" size="icon" disabled={!canSend} aria-label="Send" title="Send (Enter)">
         <SendHorizontal className="size-5" aria-hidden />
-      </button>
+      </Button>
     </form>
   )
 }

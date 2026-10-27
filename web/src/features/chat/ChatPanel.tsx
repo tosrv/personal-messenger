@@ -19,6 +19,7 @@ import {
   type Peer,
 } from './api'
 import { Composer } from './Composer'
+import { Button } from '@/components/ui/button'
 
 /** A message the server has not confirmed yet (PRD §6.5). */
 type Pending = {
@@ -101,15 +102,16 @@ function DeleteChatButton({
 
   return (
     <>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon-sm"
         onClick={() => setConfirming(true)}
         aria-label="Delete chat"
         title="Delete chat"
-        className="ml-auto inline-flex size-8 items-center justify-center rounded-full text-muted hover:bg-surface hover:text-danger focus-visible:outline-2 focus-visible:outline-accent"
+        className="ml-auto text-muted hover:text-danger"
       >
         <Trash2 className="size-4" strokeWidth={1.75} aria-hidden />
-      </button>
+      </Button>
       {confirming && (
         <ConfirmDialog
           title={`Delete chat with ${peer.display_name}?`}

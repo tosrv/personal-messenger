@@ -6,6 +6,7 @@ import { api } from '../../lib/api'
 import { meQueryKey, useMe, type Me } from '../auth/api'
 import { GUEST_RETENTION_NOTE } from '../auth/guestPolicy'
 import { SettingsPanel } from './SettingsPanel'
+import { Button } from '@/components/ui/button'
 
 const USERNAME_PATTERN = '[a-zA-Z0-9_]{3,32}'
 const MAX_DISPLAY_NAME_LENGTH = 50
@@ -128,13 +129,9 @@ function ProfileForm({ me }: { me: Me }) {
         )}
 
         <div className="flex items-center gap-3">
-          <button
-            type="submit"
-            disabled={save.isPending || !dirty}
-            className="rounded-lg bg-accent px-4 py-2 font-medium text-accent-fg hover:opacity-90 disabled:opacity-50"
-          >
+          <Button type="submit" disabled={save.isPending || !dirty}>
             {save.isPending ? 'Saving…' : 'Save changes'}
-          </button>
+          </Button>
           <p role="status" aria-live="polite" className="text-sm">
             {save.isError && <span className="text-danger">{save.error.message}</span>}
             {save.isSuccess && <span className="text-ok">Profile saved.</span>}

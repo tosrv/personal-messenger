@@ -298,7 +298,10 @@ describe('delete chat', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Delete chat' }))
 
     expect(await within(dialog).findByRole('alert')).toHaveTextContent('internal server error')
-    expect(screen.getByRole('region', { name: 'Chat with Alice' })).toBeInTheDocument()
+    // The modal hides the page behind it from assistive tech; the chat is still there.
+    expect(
+      screen.getByRole('region', { name: 'Chat with Alice', hidden: true }),
+    ).toBeInTheDocument()
   })
 })
 
