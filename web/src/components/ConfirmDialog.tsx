@@ -8,7 +8,7 @@ import {
   AlertDialogFooter,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { buttonVariants } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button-variants'
 
 /**
  * A small modal confirmation. Focus starts on Cancel (the safe choice),

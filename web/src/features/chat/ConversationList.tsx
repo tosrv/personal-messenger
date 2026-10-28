@@ -1,12 +1,13 @@
 import { Avatar } from '../../components/Avatar'
 import { GuestBadge } from '../../components/GuestBadge'
-import { EmptyState, ErrorState, LoadingState } from '../../components/States'
+import { EmptyState, ErrorState } from '../../components/States'
 import { formatShortTime } from '../../lib/time'
 import { useMe } from '../auth/api'
 import { useConversations } from './api'
 import { Button } from '@/components/ui/button'
 import { WithTooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export function ConversationList({
   selectedId,
@@ -21,7 +22,7 @@ export function ConversationList({
   const me = useMe()
   const conversations = useConversations()
 
-  if (conversations.isPending) return compact ? null : <LoadingState />
+  if (conversations.isPending) return compact ? null : <ConversationListSkeleton />
   if (conversations.isError) {
     return <ErrorState error={conversations.error} onRetry={() => conversations.refetch()} />
   }
@@ -125,5 +126,23 @@ export function ConversationList({
         )
       })}
     </ul>
+  )
+}
+
+/** Placeholder rows shaped like the list, so it doesn't jump when chats arrive. */
+function ConversationListSkeleton() {
+  return (
+    <div role="status" aria-live="polite">
+      <span className="sr-only">Loading…</span>
+      {Array.from({ length: 4 }, (_, i) => (
+        <div key={i} aria-hidden className="flex items-center gap-3 px-3 py-3">
+          <Skeleton className="size-10 shrink-0 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-1/3" />
+            <Skeleton className="h-3 w-2/3" />
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }

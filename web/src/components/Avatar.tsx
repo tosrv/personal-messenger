@@ -1,3 +1,6 @@
+import { Avatar as AvatarRoot, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { cn } from '@/lib/utils'
+
 const sizes = { sm: 'size-7 text-xs', md: 'size-10 text-sm', lg: 'size-20 text-2xl' }
 
 export function Avatar({
@@ -9,15 +12,13 @@ export function Avatar({
   src?: string
   size?: keyof typeof sizes
 }) {
-  const cls = `${sizes[size]} shrink-0 rounded-full`
-  if (src)
-    return <img src={src} alt="" referrerPolicy="no-referrer" className={`${cls} object-cover`} />
+  // A broken or slow image falls back to the initial instead of an empty circle.
   return (
-    <span
-      aria-hidden
-      className={`${cls} flex items-center justify-center bg-accent/15 font-semibold text-accent`}
-    >
-      {name.trim().charAt(0).toUpperCase() || '?'}
-    </span>
+    <AvatarRoot className={cn(sizes[size])}>
+      {src && <AvatarImage src={src} alt="" referrerPolicy="no-referrer" />}
+      <AvatarFallback aria-hidden delayMs={src ? 300 : 0}>
+        {name.trim().charAt(0).toUpperCase() || '?'}
+      </AvatarFallback>
+    </AvatarRoot>
   )
 }

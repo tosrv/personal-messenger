@@ -1,7 +1,8 @@
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button-variants'
 import { WithTooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 

@@ -1,6 +1,6 @@
 import { AlertDialog as AlertDialogPrimitive } from 'radix-ui'
 import type { ComponentProps } from 'react'
-import { buttonVariants } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button-variants'
 import { cn } from '@/lib/utils'
 
 // shadcn/ui AlertDialog, mapped onto the app's semantic colors (src/index.css).
