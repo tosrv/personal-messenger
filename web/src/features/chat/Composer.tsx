@@ -2,6 +2,8 @@ import { SendHorizontal } from 'lucide-react'
 import { useState, type FormEvent, type KeyboardEvent } from 'react'
 import { MAX_MESSAGE_LENGTH } from './api'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 
 /** Message input. Enter sends, Shift+Enter adds a new line. */
 export function Composer({ onSend }: { onSend: (body: string) => void }) {
@@ -25,10 +27,10 @@ export function Composer({ onSend }: { onSend: (body: string) => void }) {
 
   return (
     <form onSubmit={submit} className="flex items-end gap-2 border-t border-line p-3">
-      <label htmlFor="composer" className="sr-only">
+      <Label htmlFor="composer" className="sr-only">
         Message
-      </label>
-      <textarea
+      </Label>
+      <Textarea
         id="composer"
         rows={1}
         value={body}
@@ -36,7 +38,7 @@ export function Composer({ onSend }: { onSend: (body: string) => void }) {
         onChange={(e) => setBody(e.target.value)}
         onKeyDown={onKeyDown}
         placeholder="Write a message"
-        className="field-sizing-content max-h-40 min-h-10 flex-1 resize-none bg-transparent px-1 py-2 outline-none placeholder:text-muted"
+        className="max-h-40 min-h-10 flex-1 resize-none rounded-none border-0 px-1"
       />
       {remaining < 200 && (
         <span className="pb-2 text-xs text-muted" aria-live="polite">

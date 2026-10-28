@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Button } from '@/components/ui/button'
 
 export function LoadingState({ label = 'Loading…' }: { label?: string }) {
   return (
@@ -18,13 +19,9 @@ export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () =>
     <div role="alert" className="py-8 text-center">
       <p className="text-danger">{message}</p>
       {onRetry && (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="mt-3 rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-surface"
-        >
+        <Button type="button" variant="outline" size="sm" onClick={onRetry} className="mt-3">
           Try again
-        </button>
+        </Button>
       )}
     </div>
   )

@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { Button } from '@/components/ui/button'
 
 type State = { error: Error | null }
 
@@ -19,13 +20,15 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
     return (
       <div role="alert" className="mx-auto max-w-md px-4 py-16 text-center">
         <h1 className="text-xl font-semibold">Something went wrong</h1>
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={() => window.location.reload()}
-          className="mt-4 rounded-lg border border-line px-3 py-1.5 hover:bg-surface"
+          className="mt-4 text-base"
         >
           Reload
-        </button>
+        </Button>
       </div>
     )
   }

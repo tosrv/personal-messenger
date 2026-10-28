@@ -3,6 +3,8 @@ import { useState, type FormEvent } from 'react'
 import { useGuestSignIn } from './api'
 import { GUEST_RETENTION_NOTE } from './guestPolicy'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 const MAX_NAME = 50
 
@@ -29,11 +31,11 @@ export function GuestSignIn({ ownerUsername }: { ownerUsername: string }) {
         No account needed. You can message @{ownerUsername} only, and the chat stays in this
         browser. {GUEST_RETENTION_NOTE}
       </p>
-      <label htmlFor="guest-name" className="sr-only">
+      <Label htmlFor="guest-name" className="sr-only">
         Your name
-      </label>
+      </Label>
       <div className="mt-3 flex gap-2">
-        <input
+        <Input
           id="guest-name"
           value={name}
           onChange={(e) => {
@@ -44,7 +46,7 @@ export function GuestSignIn({ ownerUsername }: { ownerUsername: string }) {
           autoComplete="name"
           placeholder="Your name"
           required
-          className="min-w-0 flex-1 rounded-lg border border-line bg-transparent px-3 py-2 outline-none placeholder:text-muted focus:border-accent"
+          className="flex-1"
         />
         <Button type="submit" variant="outline" disabled={!canSubmit}>
           <UserRound className="size-4" aria-hidden />

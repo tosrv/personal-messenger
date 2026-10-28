@@ -7,6 +7,9 @@ import { ChatPanel } from './ChatPanel'
 import { ChatSearchResults } from './ChatSearchResults'
 import { ConversationList } from './ConversationList'
 import { useCloseChat, useOpenChat, useOpenConversationId, useResetChats } from './navigation'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 /**
  * WhatsApp Web–style chats: the list and the open chat side by side on wide
@@ -45,15 +48,17 @@ export function ChatsPage() {
           <div className="flex flex-col items-center gap-1 pt-3 pb-2">
             <SidebarToggle collapsed onToggle={toggle} controls="chats-sidebar" />
             {canSearch && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={expandAndSearch}
                 aria-label="Search chats or people"
                 title="Search chats or people"
-                className="inline-flex size-9 items-center justify-center rounded-full text-muted hover:bg-surface hover:text-fg"
+                className="size-9 text-muted hover:text-fg"
               >
                 <Search className="size-5" aria-hidden />
-              </button>
+              </Button>
             )}
           </div>
         ) : (
@@ -68,10 +73,10 @@ export function ChatsPage() {
                   className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted"
                   aria-hidden
                 />
-                <label htmlFor="chat-search" className="sr-only">
+                <Label htmlFor="chat-search" className="sr-only">
                   Search chats or people
-                </label>
-                <input
+                </Label>
+                <Input
                   ref={searchInput}
                   id="chat-search"
                   type="search"
@@ -81,18 +86,20 @@ export function ChatsPage() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Escape' && setQuery('')}
-                  className="w-full bg-transparent py-2 pr-9 pl-9 text-sm outline-none placeholder:text-muted [&::-webkit-search-cancel-button]:hidden"
+                  className="rounded-none border-0 py-2 pr-9 pl-9 text-sm [&::-webkit-search-cancel-button]:hidden"
                 />
                 {searching && (
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-sm"
                     onClick={() => setQuery('')}
                     aria-label="Clear search"
                     title="Clear search"
-                    className="absolute top-1/2 right-2 -translate-y-1/2 rounded-full p-1 text-muted hover:text-fg"
+                    className="absolute top-1/2 right-1 size-7 -translate-y-1/2 text-muted hover:bg-transparent hover:text-fg"
                   >
                     <X className="size-4" aria-hidden />
-                  </button>
+                  </Button>
                 )}
               </div>
             )}

@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { Trash2 } from 'lucide-react'
+import { ArrowLeft, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Avatar } from '../../components/Avatar'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
@@ -49,9 +49,9 @@ export function ChatPanel({
       return (
         <div className="py-16 text-center text-muted">
           <p>Conversation not found.</p>
-          <button type="button" onClick={onBack} className="mt-3 text-accent hover:underline">
+          <Button type="button" variant="link" onClick={onBack} className="mt-3">
             Back to chats
-          </button>
+          </Button>
         </div>
       )
     }
@@ -63,14 +63,16 @@ export function ChatPanel({
     <section className="flex h-full flex-col" aria-label={`Chat with ${peer.display_name}`}>
       <header className="flex items-center gap-3 border-b border-line px-4 py-2">
         {/* On wide screens the list stays visible, so "back" is only needed on phones. */}
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           onClick={onBack}
           className="text-muted hover:text-fg md:hidden"
           aria-label="Back to chats"
         >
-          ←
-        </button>
+          <ArrowLeft className="size-5" aria-hidden />
+        </Button>
         <Link to={`/u/${peer.username}`} className="flex items-center gap-2 hover:underline">
           <Avatar name={peer.display_name} src={peer.avatar_url} size="sm" />
           <span className="font-medium">{peer.display_name}</span>
@@ -237,14 +239,16 @@ function Thread({
           <>
             {history.hasNextPage && (
               <div className="mb-3 text-center">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={loadOlder}
                   disabled={history.isFetchingNextPage}
-                  className="rounded-lg border border-line px-3 py-1 text-sm text-muted hover:bg-surface disabled:opacity-50"
+                  className="py-1 text-muted"
                 >
                   {history.isFetchingNextPage ? 'Loading…' : 'Load older messages'}
-                </button>
+                </Button>
               </div>
             )}
             {messages.length === 0 && visiblePending.length === 0 && (
@@ -274,9 +278,14 @@ function Thread({
                   ) : (
                     <span className="text-danger">
                       Not sent ·{' '}
-                      <button type="button" onClick={() => retry(p)} className="underline">
+                      <Button
+                        type="button"
+                        variant="link"
+                        onClick={() => retry(p)}
+                        className="p-0 text-inherit underline"
+                      >
                         Retry
-                      </button>
+                      </Button>
                     </span>
                   )}
                 </Bubble>

@@ -7,6 +7,8 @@ import { meQueryKey, useMe, type Me } from '../auth/api'
 import { GUEST_RETENTION_NOTE } from '../auth/guestPolicy'
 import { SettingsPanel } from './SettingsPanel'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 const USERNAME_PATTERN = '[a-zA-Z0-9_]{3,32}'
 const MAX_DISPLAY_NAME_LENGTH = 50
@@ -66,9 +68,6 @@ function ProfileForm({ me }: { me: Me }) {
   }
   const edited = () => save.reset()
 
-  const inputClass =
-    'mt-2 w-full rounded-lg border border-line bg-surface px-3 py-2 outline-none focus:border-accent'
-
   return (
     <>
       <div className="flex items-center gap-3">
@@ -83,13 +82,13 @@ function ProfileForm({ me }: { me: Me }) {
 
       <form onSubmit={onSubmit} className="mt-6 space-y-5">
         <div>
-          <label htmlFor="display-name" className="block text-sm font-medium">
+          <Label htmlFor="display-name" className="block">
             Name
-          </label>
+          </Label>
           <p id="display-name-hint" className="text-sm text-muted">
             Shown on your profile and in chats. Up to {MAX_DISPLAY_NAME_LENGTH} characters.
           </p>
-          <input
+          <Input
             id="display-name"
             value={displayName}
             onChange={(e) => {
@@ -100,19 +99,19 @@ function ProfileForm({ me }: { me: Me }) {
             maxLength={MAX_DISPLAY_NAME_LENGTH}
             autoComplete="name"
             aria-describedby="display-name-hint"
-            className={inputClass}
+            className="mt-2 bg-surface"
           />
         </div>
 
         {!me.is_guest && (
           <div>
-            <label htmlFor="username" className="block text-sm font-medium">
+            <Label htmlFor="username" className="block">
               Username
-            </label>
+            </Label>
             <p id="username-hint" className="text-sm text-muted">
               3–32 letters, digits or underscores. Others find you and link to you with it.
             </p>
-            <input
+            <Input
               id="username"
               value={username}
               onChange={(e) => {
@@ -123,7 +122,7 @@ function ProfileForm({ me }: { me: Me }) {
               pattern={USERNAME_PATTERN}
               autoComplete="off"
               aria-describedby="username-hint"
-              className={inputClass}
+              className="mt-2 bg-surface"
             />
           </div>
         )}

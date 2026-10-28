@@ -6,6 +6,7 @@ import { ApiError } from '../../lib/api'
 import { useMe } from '../auth/api'
 import { useStartConversation } from '../chat/api'
 import { useProfile } from './api'
+import { Button } from '@/components/ui/button'
 
 /**
  * Public profile, framed by the same side rules as the navbar, chats and
@@ -48,14 +49,14 @@ function ProfileContent() {
           This is you · Edit profile
         </Link>
       ) : (
-        <button
+        <Button
           type="button"
           onClick={() => start.mutate(u.username)}
           disabled={start.isPending}
-          className="mt-4 rounded-lg bg-accent px-5 py-2 font-medium text-accent-fg hover:opacity-90 disabled:opacity-50"
+          className="mt-4 px-5"
         >
           {start.isPending ? 'Opening…' : 'Message'}
-        </button>
+        </Button>
       )}
       {start.isError && (
         <p role="alert" className="text-sm text-danger">
