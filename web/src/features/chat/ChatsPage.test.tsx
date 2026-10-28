@@ -193,7 +193,7 @@ describe('ChatsPage', () => {
       expect(screen.queryByLabelText('Search chats or people', { selector: 'input' })).toBeNull()
       // Names move to accessible labels/tooltips; unread count stays announced.
       const alice = screen.getByRole('button', { name: 'Alice, 3 unread' })
-      expect(alice).toHaveAttribute('title', 'Alice, 3 unread')
+      expect(alice).toHaveAttribute('data-state', 'closed') // Radix tooltip trigger
       expect(alice).not.toHaveTextContent('See you')
       expect(localStorage.getItem('pm-sidebar-chats')).toBe('collapsed')
 

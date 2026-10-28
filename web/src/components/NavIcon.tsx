@@ -1,11 +1,13 @@
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { WithTooltip } from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
 
 // Icon-only controls still need a name: `label` becomes the accessible name
-// (aria-label) and the hover tooltip (title).
-const base =
-  'inline-flex size-9 items-center justify-center rounded-full transition-colors hover:bg-surface hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:opacity-50'
+// (aria-label) and the hover tooltip.
+const base = 'size-9 transition-colors hover:text-fg'
 
 export function NavIconLink({
   to,
@@ -20,14 +22,21 @@ export function NavIconLink({
   children?: ReactNode
 }) {
   return (
-    <NavLink
-      to={to}
-      aria-label={label}
-      title={label}
-      className={({ isActive }) => `${base} ${isActive ? 'bg-surface text-accent' : 'text-muted'}`}
-    >
-      {Icon ? <Icon className="size-5" aria-hidden /> : children}
-    </NavLink>
+    <WithTooltip label={label} side="right">
+      <NavLink
+        to={to}
+        aria-label={label}
+        className={({ isActive }) =>
+          cn(
+            buttonVariants({ variant: 'ghost', size: 'icon' }),
+            base,
+            isActive ? 'bg-surface text-accent' : 'text-muted',
+          )
+        }
+      >
+        {Icon ? <Icon className="size-5" aria-hidden /> : children}
+      </NavLink>
+    </WithTooltip>
   )
 }
 
@@ -43,15 +52,18 @@ export function NavIconButton({
   disabled?: boolean
 }) {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      disabled={disabled}
-      className={`${base} text-muted`}
-    >
-      <Icon className="size-5" aria-hidden />
-    </button>
+    <WithTooltip label={label} side="right">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label={label}
+        onClick={onClick}
+        disabled={disabled}
+        className={cn(base, 'text-muted')}
+      >
+        <Icon className="size-5" aria-hidden />
+      </Button>
+    </WithTooltip>
   )
 }

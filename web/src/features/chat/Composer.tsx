@@ -4,6 +4,7 @@ import { MAX_MESSAGE_LENGTH } from './api'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { WithTooltip } from '@/components/ui/tooltip'
 
 /** Message input. Enter sends, Shift+Enter adds a new line. */
 export function Composer({ onSend }: { onSend: (body: string) => void }) {
@@ -45,9 +46,11 @@ export function Composer({ onSend }: { onSend: (body: string) => void }) {
           {remaining}
         </span>
       )}
-      <Button type="submit" size="icon" disabled={!canSend} aria-label="Send" title="Send (Enter)">
-        <SendHorizontal className="size-5" aria-hidden />
-      </Button>
+      <WithTooltip label="Send (Enter)">
+        <Button type="submit" size="icon" disabled={!canSend} aria-label="Send">
+          <SendHorizontal className="size-5" aria-hidden />
+        </Button>
+      </WithTooltip>
     </form>
   )
 }

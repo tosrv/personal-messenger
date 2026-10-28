@@ -20,6 +20,7 @@ import {
 } from './api'
 import { Composer } from './Composer'
 import { Button } from '@/components/ui/button'
+import { WithTooltip } from '@/components/ui/tooltip'
 
 /** A message the server has not confirmed yet (PRD §6.5). */
 type Pending = {
@@ -104,16 +105,17 @@ function DeleteChatButton({
 
   return (
     <>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={() => setConfirming(true)}
-        aria-label="Delete chat"
-        title="Delete chat"
-        className="ml-auto text-muted hover:text-danger"
-      >
-        <Trash2 className="size-4" strokeWidth={1.75} aria-hidden />
-      </Button>
+      <WithTooltip label="Delete chat" side="bottom">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => setConfirming(true)}
+          aria-label="Delete chat"
+          className="ml-auto text-muted hover:text-danger"
+        >
+          <Trash2 className="size-4" strokeWidth={1.75} aria-hidden />
+        </Button>
+      </WithTooltip>
       {confirming && (
         <ConfirmDialog
           title={`Delete chat with ${peer.display_name}?`}

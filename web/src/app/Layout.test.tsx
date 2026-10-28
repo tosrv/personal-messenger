@@ -21,7 +21,7 @@ describe('Layout navbar', () => {
     const nav = screen.getByRole('navigation', { name: 'Main' })
     const profile = await within(nav).findByRole('link', { name: 'Settings (@tomy)' })
     expect(profile).toHaveAttribute('href', '/settings')
-    expect(profile).toHaveAttribute('title') // hover tooltip
+    expect(profile).toHaveAttribute('data-state', 'closed') // Radix tooltip trigger
     expect(within(nav).getByRole('link', { name: 'Messenger' })).toHaveAttribute('href', '/')
     // No Chats icon (the brand leads to chats), no search, no sign-out.
     expect(within(nav).getAllByRole('link')).toHaveLength(2)

@@ -4,6 +4,9 @@ import { Avatar } from '../../components/Avatar'
 import { SidebarToggle } from '../../components/SidebarToggle'
 import { useSidebarCollapsed } from '../../lib/sidebar'
 import { useLogout, useMe } from '../auth/api'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import { WithTooltip } from '@/components/ui/tooltip'
 
 type Item = { to: string; label: string; icon: LucideIcon }
 
@@ -37,9 +40,11 @@ export function SettingsLayout() {
           <div className="flex flex-col items-center gap-2 pt-3 pb-2">
             <SidebarToggle collapsed onToggle={toggle} controls="settings-sidebar" />
             {me.data && (
-              <span title={`${me.data.display_name} (@${me.data.username})`}>
-                <Avatar name={me.data.display_name} src={me.data.avatar_url} />
-              </span>
+              <WithTooltip label={`${me.data.display_name} (@${me.data.username})`} side="right">
+                <span tabIndex={0} className="rounded-full">
+                  <Avatar name={me.data.display_name} src={me.data.avatar_url} />
+                </span>
+              </WithTooltip>
             )}
           </div>
         ) : (
@@ -94,23 +99,24 @@ function MenuLink({
 }) {
   return (
     <li>
-      <NavLink
-        to={to}
-        title={collapsed ? label : undefined}
-        className={({ isActive }) => {
-          // On wide screens /settings shows Profile, so mark it active too.
-          const active = isActive || (atMenu && to === 'profile')
-          const shape = collapsed
-            ? 'inline-flex size-10 items-center justify-center rounded-full'
-            : 'flex items-center gap-3 px-3 py-3'
-          return `${shape} hover:bg-surface focus-visible:bg-surface ${active ? 'md:bg-surface' : ''}`
-        }}
-      >
-        <Icon className="size-5 text-muted" aria-hidden />
-        {/* Kept for screen readers when collapsed. */}
-        <span className={collapsed ? 'sr-only' : 'flex-1'}>{label}</span>
-        {!collapsed && <ChevronRight className="size-4 text-muted md:hidden" aria-hidden />}
-      </NavLink>
+      <WithTooltip label={label} side="right" disabled={!collapsed}>
+        <NavLink
+          to={to}
+          className={({ isActive }) => {
+            // On wide screens /settings shows Profile, so mark it active too.
+            const active = isActive || (atMenu && to === 'profile')
+            const shape = collapsed
+              ? 'inline-flex size-10 items-center justify-center rounded-full'
+              : 'flex items-center gap-3 px-3 py-3'
+            return `${shape} hover:bg-surface focus-visible:bg-surface ${active ? 'md:bg-surface' : ''}`
+          }}
+        >
+          <Icon className="size-5 text-muted" aria-hidden />
+          {/* Kept for screen readers when collapsed. */}
+          <span className={collapsed ? 'sr-only' : 'flex-1'}>{label}</span>
+          {!collapsed && <ChevronRight className="size-4 text-muted md:hidden" aria-hidden />}
+        </NavLink>
+      </WithTooltip>
     </li>
   )
 }
@@ -120,20 +126,22 @@ function SignOutButton({ collapsed }: { collapsed: boolean }) {
   const label = logout.isPending ? 'Signing out…' : 'Sign out'
   return (
     <li>
-      <button
-        type="button"
-        onClick={() => logout.mutate()}
-        disabled={logout.isPending}
-        title={collapsed ? label : undefined}
-        className={`${
-          collapsed
-            ? 'inline-flex size-10 items-center justify-center rounded-full'
-            : 'flex w-full items-center gap-3 px-3 py-3 text-left'
-        } text-danger hover:bg-surface focus-visible:bg-surface disabled:opacity-50`}
-      >
-        <LogOut className="size-5" aria-hidden />
-        <span className={collapsed ? 'sr-only' : 'flex-1'}>{label}</span>
-      </button>
+      <WithTooltip label={label} side="right" disabled={!collapsed}>
+        <Button
+          type="button"
+          variant="ghost"
+          size={collapsed ? 'icon' : 'default'}
+          onClick={() => logout.mutate()}
+          disabled={logout.isPending}
+          className={cn(
+            'font-normal text-danger focus-visible:bg-surface',
+            !collapsed && 'w-full justify-start gap-3 rounded-none px-3 py-3 text-left',
+          )}
+        >
+          <LogOut className="size-5" aria-hidden />
+          <span className={collapsed ? 'sr-only' : 'flex-1'}>{label}</span>
+        </Button>
+      </WithTooltip>
       {logout.isError && !collapsed && (
         <p role="alert" className="px-3 pb-2 text-xs text-danger">
           {logout.error.message}

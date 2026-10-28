@@ -4,6 +4,9 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/States'
 import { formatShortTime } from '../../lib/time'
 import { useMe } from '../auth/api'
 import { useConversations } from './api'
+import { Button } from '@/components/ui/button'
+import { WithTooltip } from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
 
 export function ConversationList({
   selectedId,
@@ -43,24 +46,27 @@ export function ConversationList({
             : c.peer.display_name
           return (
             <li key={c.id}>
-              <button
-                type="button"
-                onClick={() => onSelect(c.id)}
-                aria-current={selected ? 'true' : undefined}
-                aria-label={label}
-                title={label}
-                className={`relative rounded-full p-1 hover:bg-surface focus-visible:outline-2 focus-visible:outline-accent ${
-                  selected ? 'bg-surface ring-2 ring-accent' : ''
-                }`}
-              >
-                <Avatar name={c.peer.display_name} src={c.peer.avatar_url} />
-                {c.unread_count > 0 && (
-                  <span
-                    aria-hidden
-                    className="absolute top-0.5 right-0.5 size-3 rounded-full bg-accent ring-2 ring-bg"
-                  />
-                )}
-              </button>
+              <WithTooltip label={label} side="right">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => onSelect(c.id)}
+                  aria-current={selected ? 'true' : undefined}
+                  aria-label={label}
+                  className={cn(
+                    'relative size-auto rounded-full p-1',
+                    selected && 'bg-surface ring-2 ring-accent',
+                  )}
+                >
+                  <Avatar name={c.peer.display_name} src={c.peer.avatar_url} />
+                  {c.unread_count > 0 && (
+                    <span
+                      aria-hidden
+                      className="absolute top-0.5 right-0.5 size-3 rounded-full bg-accent ring-2 ring-bg"
+                    />
+                  )}
+                </Button>
+              </WithTooltip>
             </li>
           )
         })}

@@ -131,7 +131,7 @@ describe('SettingsLayout', () => {
 
     const menu = screen.getByRole('navigation', { name: 'Settings' })
     const appearance = within(menu).getByRole('link', { name: 'Appearance' })
-    expect(appearance).toHaveAttribute('title', 'Appearance')
+    expect(appearance).toHaveAttribute('data-state', 'closed') // Radix tooltip trigger
     expect(screen.queryByRole('heading', { name: 'Settings' })).not.toBeInTheDocument()
     expect(localStorage.getItem('pm-sidebar-settings')).toBe('collapsed')
 

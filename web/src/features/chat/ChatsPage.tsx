@@ -10,6 +10,7 @@ import { useCloseChat, useOpenChat, useOpenConversationId, useResetChats } from 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { WithTooltip } from '@/components/ui/tooltip'
 
 /**
  * WhatsApp Web–style chats: the list and the open chat side by side on wide
@@ -48,17 +49,18 @@ export function ChatsPage() {
           <div className="flex flex-col items-center gap-1 pt-3 pb-2">
             <SidebarToggle collapsed onToggle={toggle} controls="chats-sidebar" />
             {canSearch && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={expandAndSearch}
-                aria-label="Search chats or people"
-                title="Search chats or people"
-                className="size-9 text-muted hover:text-fg"
-              >
-                <Search className="size-5" aria-hidden />
-              </Button>
+              <WithTooltip label="Search chats or people" side="right">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={expandAndSearch}
+                  aria-label="Search chats or people"
+                  className="size-9 text-muted hover:text-fg"
+                >
+                  <Search className="size-5" aria-hidden />
+                </Button>
+              </WithTooltip>
             )}
           </div>
         ) : (
@@ -95,7 +97,6 @@ export function ChatsPage() {
                     size="icon-sm"
                     onClick={() => setQuery('')}
                     aria-label="Clear search"
-                    title="Clear search"
                     className="absolute top-1/2 right-1 size-7 -translate-y-1/2 text-muted hover:bg-transparent hover:text-fg"
                   >
                     <X className="size-4" aria-hidden />
