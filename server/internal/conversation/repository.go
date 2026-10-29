@@ -82,6 +82,7 @@ func (r *PostgresRepository) MemberIDs(ctx context.Context, conversationID int64
 const summarySQL = `
 SELECT c.id, c.created_at, me.last_read_message_id, o.last_read_message_id,
        u.id, u.username, u.display_name, coalesce(u.avatar_url, ''), u.is_guest,
+       viewer.show_presence, u.show_presence, u.last_seen_at,
        lm.id, lm.sender_id, lm.body, lm.created_at,
        (SELECT count(*) FROM messages m
          WHERE m.conversation_id = c.id
@@ -92,6 +93,7 @@ FROM conversation_members me
 JOIN conversations c        ON c.id = me.conversation_id
 JOIN conversation_members o ON o.conversation_id = c.id AND o.user_id <> me.user_id
 JOIN users u                ON u.id = o.user_id
+JOIN users viewer           ON viewer.id = me.user_id
 LEFT JOIN LATERAL (
     SELECT id, sender_id, body, created_at FROM messages
     WHERE conversation_id = c.id AND id > me.cleared_message_id
@@ -169,6 +171,27 @@ func (r *PostgresRepository) VisibleFrom(ctx context.Context, conversationID, us
 	return cleared, err
 }
 
+// PresenceAudience returns whether userID shows their presence, when they
+// were last seen, and the contacts (users sharing a conversation with them)
+// who show theirs, since presence is reciprocal (ADR 0010).
+func (r *PostgresRepository) PresenceAudience(ctx context.Context, userID int64) (Audience, error) {
+	var a Audience
+	err := r.db.QueryRow(ctx,
+		`SELECT u.show_presence, u.last_seen_at,
+		        coalesce(array_agg(DISTINCT o.user_id) FILTER (WHERE ou.show_presence), '{}')
+		 FROM users u
+		 LEFT JOIN conversation_members me ON me.user_id = u.id
+		 LEFT JOIN conversation_members o  ON o.conversation_id = me.conversation_id AND o.user_id <> u.id
+		 LEFT JOIN users ou                ON ou.id = o.user_id
+		 WHERE u.id = $1
+		 GROUP BY u.id`,
+		userID).Scan(&a.Visible, &a.LastSeenAt, &a.ContactIDs)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Audience{}, apperr.ErrNotFound
+	}
+	return a, err
+}
+
 func scanSummary(row pgx.Row) (Summary, error) {
 	// Last-message columns are NULL for a conversation with no messages yet.
 	var (
@@ -182,6 +205,7 @@ func scanSummary(row pgx.Row) (Summary, error) {
 	)
 	err := row.Scan(&s.ID, &s.CreatedAt, &lastRead, &peerRead,
 		&s.Peer.ID, &s.Peer.Username, &s.Peer.DisplayName, &s.Peer.AvatarURL, &s.Peer.IsGuest,
+		&s.viewerShowsPresence, &s.peerShowsPresence, &s.peerLastSeenAt,
 		&lmID, &lmSender, &lmBody, &lmAt, &s.UnreadCount)
 	if err != nil {
 		return Summary{}, err

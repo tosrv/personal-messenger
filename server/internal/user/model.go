@@ -12,8 +12,10 @@ type User struct {
 	AvatarURL   string
 	Username    string
 	IsGuest     bool // no Google account; may only chat with the owner (ADR 0008)
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	// ShowPresence is the privacy setting for online status / last seen (ADR 0010).
+	ShowPresence bool
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 // PublicProfile is what other users may see.
@@ -28,7 +30,12 @@ type PublicProfile struct {
 // Me is the signed-in user's view of their own account.
 type Me struct {
 	PublicProfile
-	Email string `json:"email,omitempty"` // empty for guests
+	Email        string `json:"email,omitempty"` // empty for guests
+	ShowPresence bool   `json:"show_presence"`
+}
+
+func (u User) Me() Me {
+	return Me{PublicProfile: u.Public(), Email: u.Email, ShowPresence: u.ShowPresence}
 }
 
 func (u User) Public() PublicProfile {
@@ -39,8 +46,9 @@ func (u User) Public() PublicProfile {
 
 // ProfileUpdate holds the fields a user may change; nil means unchanged.
 type ProfileUpdate struct {
-	Username    *string
-	DisplayName *string
+	Username     *string
+	DisplayName  *string
+	ShowPresence *bool
 }
 
 // GoogleProfile is the data needed to create or refresh a user from Google.

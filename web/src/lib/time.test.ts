@@ -1,4 +1,4 @@
-import { dayKey, formatDayLabel, formatShortTime } from './time'
+import { dayKey, formatDayLabel, formatLastSeen, formatShortTime, formatTime } from './time'
 
 // Local times, so the tests do not depend on the machine's time zone.
 const now = new Date(2026, 9, 26, 9, 30) // Mon 26 Oct 2026, 09:30
@@ -38,5 +38,27 @@ describe('dayKey', () => {
   it('groups by local calendar day', () => {
     expect(dayKey(at(2026, 9, 25, 1))).toBe(dayKey(at(2026, 9, 25, 23)))
     expect(dayKey(at(2026, 9, 25, 23))).not.toBe(dayKey(at(2026, 9, 26, 0)))
+  })
+})
+
+describe('formatLastSeen', () => {
+  const minutesAgo = (m: number) => new Date(now.getTime() - m * 60_000).toISOString()
+
+  it.each([
+    ['seconds ago', minutesAgo(0.5), 'last seen just now'],
+    ['minutes ago', minutesAgo(5), 'last seen 5 min ago'],
+    ['59 minutes ago', minutesAgo(59), 'last seen 59 min ago'],
+  ])('%s → %s', (_, iso, want) => {
+    expect(formatLastSeen(iso, now)).toBe(want)
+  })
+
+  it('uses today / yesterday with the time, then the date', () => {
+    const today = at(2026, 9, 26, 7)
+    const yesterday = at(2026, 9, 25, 21)
+    expect(formatLastSeen(today, now)).toBe(`last seen today at ${formatTime(today)}`)
+    expect(formatLastSeen(yesterday, now)).toBe(`last seen yesterday at ${formatTime(yesterday)}`)
+    expect(formatLastSeen(at(2026, 9, 12), now)).toBe(
+      `last seen ${formatShortTime(at(2026, 9, 12), now)}`,
+    )
   })
 })

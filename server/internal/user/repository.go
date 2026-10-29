@@ -14,7 +14,7 @@ import (
 )
 
 const userColumns = `id, coalesce(google_sub, ''), coalesce(email, ''), display_name,
-	coalesce(avatar_url, ''), username, is_guest, created_at, updated_at`
+	coalesce(avatar_url, ''), username, is_guest, show_presence, created_at, updated_at`
 
 // errUsernameTaken is returned by Create when the username is already used.
 var errUsernameTaken = errors.New("username taken")
@@ -74,10 +74,11 @@ func (r *PostgresRepository) UpdateProfile(ctx context.Context, id int64, p Prof
 		     username = coalesce($2, username),
 		     display_name = coalesce($3, display_name),
 		     display_name_customized = display_name_customized OR $3::text IS NOT NULL,
+		     show_presence = coalesce($4, show_presence),
 		     updated_at = now()
 		 WHERE id = $1
 		 RETURNING `+userColumns,
-		id, p.Username, p.DisplayName)
+		id, p.Username, p.DisplayName, p.ShowPresence)
 	if constraintViolated(err) == "users_username_key" {
 		return User{}, errUsernameTaken
 	}
@@ -153,6 +154,12 @@ func (r *PostgresRepository) DeleteInactiveGuests(ctx context.Context, inactiveF
 	return tag.RowsAffected(), tx.Commit(ctx)
 }
 
+// SetLastSeen records when the user's last connection closed.
+func (r *PostgresRepository) SetLastSeen(ctx context.Context, id int64, at time.Time) error {
+	_, err := r.db.Exec(ctx, `UPDATE users SET last_seen_at = $2 WHERE id = $1`, id, at)
+	return err
+}
+
 func (r *PostgresRepository) SearchByUsernamePrefix(ctx context.Context, prefix string, excludeID int64, limit int) ([]User, error) {
 	rows, err := r.db.Query(ctx,
 		`SELECT `+userColumns+` FROM users
@@ -176,7 +183,8 @@ func (r *PostgresRepository) getOne(ctx context.Context, sql string, args ...any
 
 func scanUser(row pgx.Row) (User, error) {
 	var u User
-	err := row.Scan(&u.ID, &u.GoogleSub, &u.Email, &u.DisplayName, &u.AvatarURL, &u.Username, &u.IsGuest, &u.CreatedAt, &u.UpdatedAt)
+	err := row.Scan(&u.ID, &u.GoogleSub, &u.Email, &u.DisplayName, &u.AvatarURL, &u.Username, &u.IsGuest,
+		&u.ShowPresence, &u.CreatedAt, &u.UpdatedAt)
 	return u, err
 }
 

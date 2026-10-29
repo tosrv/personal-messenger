@@ -32,7 +32,15 @@ func newServer(t *testing.T, hub *Hub) *httptest.Server {
 	return newServerWithMembers(t, hub, staticMembers{})
 }
 
+func newServerWithPresence(t *testing.T, hub *Hub, presence PresenceTracker) *httptest.Server {
+	return newServerWith(t, hub, staticMembers{}, presence)
+}
+
 func newServerWithMembers(t *testing.T, hub *Hub, members MemberLookup) *httptest.Server {
+	return newServerWith(t, hub, members, nil)
+}
+
+func newServerWith(t *testing.T, hub *Hub, members MemberLookup, presence PresenceTracker) *httptest.Server {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -41,7 +49,7 @@ func newServerWithMembers(t *testing.T, hub *Hub, members MemberLookup) *httptes
 		httpx.SetUserID(c, id)
 	})
 	alwaysValid := func(context.Context, *gin.Context) bool { return true }
-	NewHandler(hub, members, []string{"http://allowed.test"}, alwaysValid, quiet).Register(g)
+	NewHandler(hub, members, presence, []string{"http://allowed.test"}, alwaysValid, quiet).Register(g)
 	srv := httptest.NewServer(r)
 	t.Cleanup(srv.Close)
 	return srv
@@ -149,7 +157,7 @@ func TestClientsAreRemovedOnDisconnectAndShutdown(t *testing.T) {
 
 func TestSlowClientIsDroppedInsteadOfBlocking(t *testing.T) {
 	hub := NewHub()
-	c := hub.register(1)
+	c, _ := hub.register(1)
 	payload := []byte(`{}`)
 	done := make(chan struct{})
 	go func() {

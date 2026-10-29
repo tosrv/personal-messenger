@@ -20,6 +20,9 @@ export type Peer = {
   is_guest?: boolean
 }
 
+/** The peer's online status; absent when either side hides presence (ADR 0010). */
+export type Presence = { online: boolean; last_seen_at: string | null }
+
 export type Conversation = {
   id: number
   peer: Peer
@@ -28,6 +31,7 @@ export type Conversation = {
   last_read_message_id: number
   /** The peer has read the viewer's messages up to this id (read receipts). */
   peer_last_read_message_id: number
+  peer_presence?: Presence
   created_at: string
 }
 
@@ -195,6 +199,30 @@ export function receiveRead(
   qc.setQueryData<{ conversations: Conversation[] }>(
     conversationsKey,
     (data) => data && { conversations: data.conversations.map(bump) },
+  )
+}
+
+/**
+ * Applies a "presence" event to every cached conversation with that user.
+ * online=false with last_seen_at=null means they now hide their presence.
+ */
+export function receivePresence(
+  qc: QueryClient,
+  event: { user_id: number; online: boolean; last_seen_at: string | null },
+) {
+  const presence: Presence | undefined =
+    event.online || event.last_seen_at
+      ? { online: event.online, last_seen_at: event.online ? null : event.last_seen_at }
+      : undefined
+  const apply = (c: Conversation): Conversation =>
+    c.peer.id === event.user_id ? { ...c, peer_presence: presence } : c
+  qc.setQueriesData<Conversation>(
+    { predicate: (q) => q.queryKey[0] === 'conversations' && typeof q.queryKey[1] === 'number' },
+    (c) => c && apply(c),
+  )
+  qc.setQueryData<{ conversations: Conversation[] }>(
+    conversationsKey,
+    (data) => data && { conversations: data.conversations.map(apply) },
   )
 }
 

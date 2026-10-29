@@ -28,6 +28,7 @@ type SessionCheck func(ctx context.Context, c *gin.Context) bool
 type Handler struct {
 	hub            *Hub
 	members        MemberLookup
+	presence       PresenceTracker
 	originPatterns []string
 	sessionValid   SessionCheck
 	logger         *slog.Logger
@@ -35,15 +36,16 @@ type Handler struct {
 
 // NewHandler accepts connections only from allowedOrigins (PRD §8: WebSocket
 // origin validation). Each origin is reduced to its host for the check.
-// members authorizes client frames such as "typing".
-func NewHandler(hub *Hub, members MemberLookup, allowedOrigins []string, sessionValid SessionCheck, logger *slog.Logger) *Handler {
+// members authorizes client frames such as "typing"; presence (optional)
+// announces when a user comes online or goes offline.
+func NewHandler(hub *Hub, members MemberLookup, presence PresenceTracker, allowedOrigins []string, sessionValid SessionCheck, logger *slog.Logger) *Handler {
 	var patterns []string
 	for _, o := range allowedOrigins {
 		if u, err := url.Parse(o); err == nil && u.Host != "" {
 			patterns = append(patterns, u.Host)
 		}
 	}
-	return &Handler{hub: hub, members: members, originPatterns: patterns, sessionValid: sessionValid, logger: logger}
+	return &Handler{hub: hub, members: members, presence: presence, originPatterns: patterns, sessionValid: sessionValid, logger: logger}
 }
 
 // Register mounts GET /ws; rg must use auth.RequireSession, which
@@ -62,8 +64,19 @@ func (h *Handler) serve(c *gin.Context) {
 	}
 	conn.SetReadLimit(readLimit)
 
-	cl := h.hub.register(userID)
-	defer h.hub.unregister(cl)
+	cl, first := h.hub.register(userID)
+	if first && h.presence != nil {
+		h.presence.Online(c.Request.Context(), userID)
+	}
+	defer func() {
+		if h.hub.unregister(cl) && h.presence != nil {
+			// The request context may already be cancelled (shutdown or
+			// disconnect); last seen must still be stored.
+			ctx, cancel := context.WithTimeout(context.WithoutCancel(c.Request.Context()), writeTimeout)
+			defer cancel()
+			h.presence.Offline(ctx, userID)
+		}
+	}()
 
 	// The read loop answers pings/close frames, handles client frames, and
 	// cancels ctx when the peer goes away or breaks the rules.

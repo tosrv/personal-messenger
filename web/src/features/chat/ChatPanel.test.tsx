@@ -232,3 +232,42 @@ describe('ChatPanel read receipts', () => {
     expect(receipt('Hello from Alice')).toBeNull()
   })
 })
+
+describe('ChatPanel presence', () => {
+  function renderWithPresence(presence: unknown) {
+    const conv = { ...conversation, peer_presence: presence }
+    mockApi({
+      'GET /me': () => [200, me],
+      'GET /conversations/7': () => [200, conv],
+      'GET /conversations/7/messages': () => [200, { messages: [hello], has_more: false }],
+      'POST /conversations/7/read': () => [204],
+      'GET /conversations': () => [200, { conversations: [conv] }],
+    })
+    renderWithProviders(<ChatsPage />, {
+      path: '/chats',
+      route: { pathname: '/chats', state: { conversationId: 7 } },
+    })
+  }
+
+  it('shows "online" in the header and a dot in the list', async () => {
+    renderWithPresence({ online: true, last_seen_at: null })
+    expect(await screen.findByText('online')).toBeInTheDocument()
+    expect(await screen.findByRole('img', { name: 'Online' })).toBeInTheDocument()
+  })
+
+  it('shows last seen when offline', async () => {
+    renderWithPresence({
+      online: false,
+      last_seen_at: new Date(Date.now() - 5 * 60_000).toISOString(),
+    })
+    expect(await screen.findByText('last seen 5 min ago')).toBeInTheDocument()
+    expect(screen.queryByRole('img', { name: 'Online' })).not.toBeInTheDocument()
+  })
+
+  it('shows nothing when presence is hidden', async () => {
+    renderWithPresence(undefined)
+    await screen.findByText('Hello from Alice')
+    expect(screen.queryByText('online')).not.toBeInTheDocument()
+    expect(screen.queryByText(/last seen/)).not.toBeInTheDocument()
+  })
+})

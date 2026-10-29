@@ -61,6 +61,16 @@ A member moved their read marker forward (`POST /api/v1/conversations/:id/read`)
 { "type": "conversation.read", "conversation_id": 7, "user_id": 2, "last_read_message_id": 42 }
 ```
 
+### `presence`
+
+A contact came online, went offline, or changed their privacy setting ([ADR 0010](adr/0010-presence-and-receipt-privacy.md)). A user is online while they have at least one open socket; `last_seen_at` is stored when their last socket closes. Sent only to users who share a conversation with them and who show their own presence (it is reciprocal), and only if the user shows theirs. `online: false` with `last_seen_at: null` means "now hidden".
+
+```json
+{ "type": "presence", "user_id": 2, "online": false, "last_seen_at": "2026-10-29T08:00:00Z" }
+```
+
+After a reconnect, the conversation summary's `peer_presence` (`{ "online", "last_seen_at" }`, omitted when hidden) restores it. The setting is `show_presence` on `GET/PATCH /api/v1/me`.
+
 The client must ignore event types it does not recognise, so new events can be added without breaking old tabs.
 
 ## Client → server

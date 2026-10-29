@@ -6,7 +6,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { GuestBadge } from '../../components/GuestBadge'
 import { ErrorState, LoadingState } from '../../components/States'
 import { ApiError } from '../../lib/api'
-import { dayKey, formatDayLabel, formatTime } from '../../lib/time'
+import { dayKey, formatDayLabel, formatLastSeen, formatTime } from '../../lib/time'
 import { useMe } from '../auth/api'
 import { GUEST_RETENTION_NOTE } from '../auth/guestPolicy'
 import { useIsTyping, useTypingSignal } from '../realtime/typing'
@@ -18,6 +18,7 @@ import {
   useSendMessage,
   type Message,
   type Peer,
+  type Presence,
 } from './api'
 import { Composer } from './Composer'
 import { Button } from '@/components/ui/button'
@@ -82,7 +83,10 @@ export function ChatPanel({
           <Avatar name={peer.display_name} src={peer.avatar_url} size="sm" />
           <span className="flex min-w-0 flex-col leading-tight">
             <span className="truncate font-medium">{peer.display_name}</span>
-            <PeerStatus conversationId={conversationId} />
+            <PeerStatus
+              conversationId={conversationId}
+              presence={conversation.data.peer_presence}
+            />
           </span>
         </Link>
         {peer.is_guest && <GuestBadge />}
@@ -99,15 +103,21 @@ export function ChatPanel({
   )
 }
 
-/** "typing…" under the peer's name while they type. */
-function PeerStatus({ conversationId }: { conversationId: number }) {
+/** Under the peer's name: "typing…", else "online" or "last seen …" if allowed. */
+function PeerStatus({ conversationId, presence }: { conversationId: number; presence?: Presence }) {
   const typing = useIsTyping(conversationId)
-  if (!typing) return null
-  return (
-    <span className="text-xs text-accent" aria-live="polite">
-      typing…
-    </span>
-  )
+  if (typing) {
+    return (
+      <span className="text-xs text-accent" aria-live="polite">
+        typing…
+      </span>
+    )
+  }
+  if (presence?.online) return <span className="text-xs text-ok">online</span>
+  if (presence?.last_seen_at) {
+    return <span className="text-xs text-muted">{formatLastSeen(presence.last_seen_at)}</span>
+  }
+  return null
 }
 
 function DeleteChatButton({

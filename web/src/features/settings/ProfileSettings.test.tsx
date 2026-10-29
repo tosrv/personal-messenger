@@ -7,8 +7,8 @@ import { ProfileSettings } from './ProfileSettings'
 const me = { id: 1, username: 'tomy', display_name: 'Tomy', email: 't@example.com' }
 
 /** Renders the page; PATCH /me answers with `respond(body)`. Returns sent bodies. */
-function renderSettings(respond: (body: Record<string, string>) => [number, unknown]) {
-  const patches: Record<string, string>[] = []
+function renderSettings(respond: (body: Record<string, unknown>) => [number, unknown]) {
+  const patches: Record<string, unknown>[] = []
   mockApi({
     'GET /me': () => [200, me],
     'PATCH /me': (init) => {
@@ -62,6 +62,18 @@ describe('ProfileSettings', () => {
     renderSettings((b) => [200, { ...me, ...b }])
     const name = await screen.findByLabelText('Name')
     await userEvent.type(name, '   ')
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
+  })
+
+  it('hides online status right away when the toggle is turned off', async () => {
+    const patches = renderSettings((b) => [200, { ...me, show_presence: true, ...b }])
+    const toggle = await screen.findByRole('checkbox', { name: 'Show online status' })
+    expect(toggle).toBeChecked()
+
+    await userEvent.click(toggle)
+
+    await vi.waitFor(() => expect(toggle).not.toBeChecked())
+    expect(patches).toEqual([{ show_presence: false }])
     expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled()
   })
 })

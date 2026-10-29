@@ -76,7 +76,37 @@ func (f *fakeRepo) UpdateProfile(_ context.Context, id int64, p ProfileUpdate) (
 	if p.DisplayName != nil {
 		f.users[i].DisplayName = *p.DisplayName
 	}
+	if p.ShowPresence != nil {
+		f.users[i].ShowPresence = *p.ShowPresence
+	}
 	return f.users[i], nil
+}
+
+func (f *fakeRepo) SetLastSeen(context.Context, int64, time.Time) error { return nil }
+
+type presenceSpy []int64
+
+func (s *presenceSpy) PresenceSettingChanged(_ context.Context, userID int64) {
+	*s = append(*s, userID)
+}
+
+func TestUpdateProfile_ShowPresence(t *testing.T) {
+	svc := NewService(&fakeRepo{users: []User{{ID: 1, Username: "alice", DisplayName: "Alice", ShowPresence: true}}})
+	var spy presenceSpy
+	svc.SetPresenceListener(&spy)
+	ctx := context.Background()
+
+	off := false
+	me, err := svc.UpdateProfile(ctx, 1, ProfileUpdate{ShowPresence: &off})
+	if err != nil || me.ShowPresence {
+		t.Fatalf("hide presence = %+v, %v", me, err)
+	}
+	if _, err := svc.UpdateProfile(ctx, 1, ProfileUpdate{DisplayName: ptr("Alice B")}); err != nil {
+		t.Fatal(err)
+	}
+	if len(spy) != 1 || spy[0] != 1 {
+		t.Errorf("listener calls = %v, want only the presence change for user 1", spy)
+	}
 }
 
 func (f *fakeRepo) CreateGuest(_ context.Context, displayName, username string) (User, error) {

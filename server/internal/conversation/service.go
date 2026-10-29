@@ -18,6 +18,12 @@ type Repository interface {
 	MarkRead(ctx context.Context, conversationID, userID, messageID int64) (int64, bool, error)
 	ClearForUser(ctx context.Context, conversationID, userID int64) (bool, error)
 	VisibleFrom(ctx context.Context, conversationID, userID int64) (int64, error)
+	PresenceAudience(ctx context.Context, userID int64) (Audience, error)
+}
+
+// OnlineChecker reports whether a user has an open connection (realtime.Hub).
+type OnlineChecker interface {
+	IsOnline(userID int64) bool
 }
 
 // UserLookup resolves users (implemented by user.Service).
@@ -35,8 +41,9 @@ type Service struct {
 	repo  Repository
 	users UserLookup
 	// owner is the username guests may talk to (ADR 0008). Empty = nobody.
-	owner string
-	reads ReadNotifier
+	owner  string
+	reads  ReadNotifier
+	online OnlineChecker
 }
 
 func NewService(repo Repository, users UserLookup, ownerUsername string) *Service {
@@ -48,6 +55,34 @@ var errGuestsOwnerOnly = fmt.Errorf("%w: guests can only chat with the owner", a
 // SetReadNotifier wires read receipts. It is a setter because the notifier
 // itself looks up members through this service.
 func (s *Service) SetReadNotifier(n ReadNotifier) { s.reads = n }
+
+// SetOnlineChecker enables PeerPresence in summaries.
+func (s *Service) SetOnlineChecker(c OnlineChecker) { s.online = c }
+
+// withPresence fills PeerPresence when both sides show presence (ADR 0010).
+func (s *Service) withPresence(sum Summary) Summary {
+	if s.online == nil || !sum.viewerShowsPresence || !sum.peerShowsPresence {
+		return sum
+	}
+	if s.online.IsOnline(sum.Peer.ID) {
+		sum.PeerPresence = &Presence{Online: true}
+	} else {
+		sum.PeerPresence = &Presence{LastSeenAt: sum.peerLastSeenAt}
+	}
+	return sum
+}
+
+func (s *Service) withPresenceErr(sum Summary, err error) (Summary, error) {
+	if err != nil {
+		return Summary{}, err
+	}
+	return s.withPresence(sum), nil
+}
+
+// PresenceAudience implements realtime.AudienceLookup.
+func (s *Service) PresenceAudience(ctx context.Context, userID int64) (Audience, error) {
+	return s.repo.PresenceAudience(ctx, userID)
+}
 
 func (s *Service) isOwner(username string) bool {
 	return s.owner != "" && strings.EqualFold(username, s.owner)
@@ -78,15 +113,19 @@ func (s *Service) StartDirect(ctx context.Context, viewerID int64, username stri
 	if err != nil {
 		return Summary{}, fmt.Errorf("get or create conversation: %w", err)
 	}
-	return s.repo.GetForUser(ctx, id, viewerID)
+	return s.withPresenceErr(s.repo.GetForUser(ctx, id, viewerID))
 }
 
 func (s *Service) List(ctx context.Context, viewerID int64) ([]Summary, error) {
-	return s.repo.ListForUser(ctx, viewerID)
+	list, err := s.repo.ListForUser(ctx, viewerID)
+	for i := range list {
+		list[i] = s.withPresence(list[i])
+	}
+	return list, err
 }
 
 func (s *Service) Get(ctx context.Context, viewerID, conversationID int64) (Summary, error) {
-	return s.repo.GetForUser(ctx, conversationID, viewerID)
+	return s.withPresenceErr(s.repo.GetForUser(ctx, conversationID, viewerID))
 }
 
 func (s *Service) MarkRead(ctx context.Context, viewerID, conversationID, messageID int64) error {

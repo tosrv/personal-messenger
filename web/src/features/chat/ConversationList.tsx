@@ -93,7 +93,16 @@ export function ConversationList({
                 selected ? 'bg-surface' : ''
               }`}
             >
-              <Avatar name={c.peer.display_name} src={c.peer.avatar_url} />
+              <span className="relative shrink-0">
+                <Avatar name={c.peer.display_name} src={c.peer.avatar_url} />
+                {c.peer_presence?.online && (
+                  <span
+                    role="img"
+                    aria-label="Online"
+                    className="absolute right-0 bottom-0 size-3 rounded-full bg-ok ring-2 ring-bg"
+                  />
+                )}
+              </span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline justify-between gap-2">
                   <span className="flex min-w-0 items-center gap-1.5">

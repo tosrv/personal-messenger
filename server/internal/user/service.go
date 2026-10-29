@@ -33,11 +33,27 @@ type Repository interface {
 	CreateGuest(ctx context.Context, displayName, username string) (User, error)
 	DeleteAbandonedGuests(ctx context.Context, olderThan time.Duration) (int64, error)
 	DeleteInactiveGuests(ctx context.Context, inactiveFor time.Duration) (int64, error)
+	SetLastSeen(ctx context.Context, id int64, at time.Time) error
+}
+
+// PresenceListener is told when a user changes their presence setting, so
+// contacts can be updated right away (implemented by realtime.Presence).
+type PresenceListener interface {
+	PresenceSettingChanged(ctx context.Context, userID int64)
 }
 
 // Service holds user business rules. It knows nothing about HTTP.
 type Service struct {
-	repo Repository
+	repo     Repository
+	presence PresenceListener
+}
+
+// SetPresenceListener wires presence updates; nil disables them.
+func (s *Service) SetPresenceListener(l PresenceListener) { s.presence = l }
+
+// SetLastSeen records when the user's last connection closed (ADR 0009).
+func (s *Service) SetLastSeen(ctx context.Context, userID int64, at time.Time) error {
+	return s.repo.SetLastSeen(ctx, userID, at)
 }
 
 func NewService(repo Repository) *Service {
@@ -123,13 +139,13 @@ func (s *Service) Me(ctx context.Context, userID int64) (Me, error) {
 	if err != nil {
 		return Me{}, err
 	}
-	return Me{PublicProfile: u.Public(), Email: u.Email}, nil
+	return u.Me(), nil
 }
 
-// UpdateProfile changes the username and/or display name. Fields left nil
-// are unchanged; at least one must be set.
+// UpdateProfile changes the username, display name and/or presence setting.
+// Fields left nil are unchanged; at least one must be set.
 func (s *Service) UpdateProfile(ctx context.Context, userID int64, p ProfileUpdate) (Me, error) {
-	if p.Username == nil && p.DisplayName == nil {
+	if p.Username == nil && p.DisplayName == nil && p.ShowPresence == nil {
 		return Me{}, fmt.Errorf("%w: nothing to update", apperr.ErrInvalidInput)
 	}
 	if p.Username != nil {
@@ -159,7 +175,10 @@ func (s *Service) UpdateProfile(ctx context.Context, userID int64, p ProfileUpda
 	if err != nil {
 		return Me{}, err
 	}
-	return Me{PublicProfile: u.Public(), Email: u.Email}, nil
+	if p.ShowPresence != nil && s.presence != nil {
+		s.presence.PresenceSettingChanged(ctx, userID)
+	}
+	return u.Me(), nil
 }
 
 func (s *Service) GetProfile(ctx context.Context, username string) (PublicProfile, error) {

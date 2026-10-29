@@ -1,0 +1,3 @@
+ALTER TABLE users
+    DROP COLUMN last_seen_at,
+    DROP COLUMN show_presence;

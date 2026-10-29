@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tosrv/personal-messenger/server/internal/apperr"
 	"github.com/tosrv/personal-messenger/server/internal/user"
@@ -158,5 +159,51 @@ func TestMarkReadAnnouncesOnlyAMovedMarker(t *testing.T) {
 	}
 	if want := (fakeReads{{7, 1, 42}}); len(reads) != 1 || reads[0] != want[0] {
 		t.Errorf("announced %+v, want %+v", reads, want)
+	}
+}
+
+type onlineSet map[int64]bool
+
+func (o onlineSet) IsOnline(id int64) bool { return o[id] }
+
+type summaryRepo struct {
+	fakeRepo
+	sum Summary
+}
+
+func (r *summaryRepo) GetForUser(context.Context, int64, int64) (Summary, error) { return r.sum, nil }
+
+func TestPeerPresenceRespectsBothSettings(t *testing.T) {
+	seen := time.Date(2026, 10, 29, 8, 0, 0, 0, time.UTC)
+	base := Summary{ID: 7, Peer: Peer{ID: 2}, peerLastSeenAt: &seen}
+	cases := []struct {
+		name         string
+		viewer, peer bool
+		online       bool
+		want         *Presence
+	}{
+		{"both show, peer online", true, true, true, &Presence{Online: true}},
+		{"both show, peer offline", true, true, false, &Presence{LastSeenAt: &seen}},
+		{"peer hides", true, false, true, nil},
+		{"viewer hides (reciprocal)", false, true, true, nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			sum := base
+			sum.viewerShowsPresence, sum.peerShowsPresence = c.viewer, c.peer
+			svc := NewService(&summaryRepo{sum: sum}, fakeUsers{}, "")
+			svc.SetOnlineChecker(onlineSet{2: c.online})
+			got, err := svc.Get(context.Background(), 1, 7)
+			if err != nil {
+				t.Fatal(err)
+			}
+			switch {
+			case c.want == nil && got.PeerPresence != nil:
+				t.Errorf("presence = %+v, want hidden", got.PeerPresence)
+			case c.want != nil && (got.PeerPresence == nil || got.PeerPresence.Online != c.want.Online ||
+				(c.want.LastSeenAt == nil) != (got.PeerPresence.LastSeenAt == nil)):
+				t.Errorf("presence = %+v, want %+v", got.PeerPresence, c.want)
+			}
+		})
 	}
 }

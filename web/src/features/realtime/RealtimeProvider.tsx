@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { RealtimeClient, websocketUrl, type ConnectionStatus } from '../../lib/realtime'
 import { useMe } from '../auth/api'
-import { receiveMessage, receiveRead, syncAll, type Message } from '../chat/api'
+import { receiveMessage, receivePresence, receiveRead, syncAll, type Message } from '../chat/api'
 import { StatusContext } from './status'
 import { createTypingThrottle, TypingContext, useTypingState } from './typing'
 
@@ -49,6 +49,17 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
             },
             userId,
           )
+        } else if (
+          event.type === 'presence' &&
+          typeof event.user_id === 'number' &&
+          typeof event.online === 'boolean' &&
+          (event.last_seen_at === null || typeof event.last_seen_at === 'string')
+        ) {
+          receivePresence(queryClient, {
+            user_id: event.user_id,
+            online: event.online,
+            last_seen_at: event.last_seen_at,
+          })
         }
       },
     })

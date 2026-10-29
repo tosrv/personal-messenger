@@ -12,6 +12,8 @@ export type Me = {
   email?: string
   /** Guest account (ADR 0008): no Google sign-in, may only chat with the owner. */
   is_guest?: boolean
+  /** Shows (and so also sees) online status and last seen (ADR 0010). */
+  show_presence?: boolean
 }
 
 /** Public server settings, available before sign-in. */

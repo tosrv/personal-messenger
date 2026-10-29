@@ -54,6 +54,9 @@ func main() {
 	hub := realtime.NewHub()
 	notifier := realtime.NewNotifier(hub, conversations, logger)
 	conversations.SetReadNotifier(notifier)
+	conversations.SetOnlineChecker(hub)
+	presence := realtime.NewPresence(hub, users, conversations, logger)
+	users.SetPresenceListener(presence)
 	messages := message.NewService(message.NewPostgresRepository(pool), conversations, notifier)
 
 	var authHandler *auth.Handler
@@ -83,7 +86,7 @@ func main() {
 		Addr: ":" + cfg.Port,
 		Handler: httpapi.NewRouter(cfg, httpapi.Deps{
 			Pool: pool, Logger: logger, Sessions: sessions, Auth: authHandler,
-			Users: users, Conversations: conversations, Messages: messages, Hub: hub,
+			Users: users, Conversations: conversations, Messages: messages, Hub: hub, Presence: presence,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
