@@ -5,6 +5,10 @@ class FakeSocket {
   onmessage: ((e: { data: string }) => void) | null = null
   onclose: (() => void) | null = null
   closed = false
+  sent: string[] = []
+  send(data: string) {
+    this.sent.push(data)
+  }
   serverSend(data: object) {
     this.onmessage?.({ data: JSON.stringify(data) })
   }
@@ -108,6 +112,20 @@ describe('RealtimeClient', () => {
     vi.advanceTimersByTime(60_000)
     expect(sockets).toHaveLength(1)
     expect(statuses).not.toContain('offline')
+  })
+
+  it('sends frames only while connected', () => {
+    const { client, sockets } = setup()
+    client.start()
+    expect(client.send({ type: 'typing', conversation_id: 7 })).toBe(false)
+
+    sockets[0].serverSend({ type: 'ready' })
+    expect(client.send({ type: 'typing', conversation_id: 7 })).toBe(true)
+    expect(sockets[0].sent).toEqual(['{"type":"typing","conversation_id":7}'])
+
+    sockets[0].drop()
+    expect(client.send({ type: 'typing', conversation_id: 7 })).toBe(false)
+    client.stop()
   })
 
   it('ignores malformed frames', () => {

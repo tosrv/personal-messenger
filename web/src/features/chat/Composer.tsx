@@ -7,7 +7,14 @@ import { Textarea } from '@/components/ui/textarea'
 import { WithTooltip } from '@/components/ui/tooltip'
 
 /** Message input. Enter sends, Shift+Enter adds a new line. */
-export function Composer({ onSend }: { onSend: (body: string) => void }) {
+export function Composer({
+  onSend,
+  onTyping,
+}: {
+  onSend: (body: string) => void
+  /** Called on every edit that leaves text in the box (throttled by the caller). */
+  onTyping?: () => void
+}) {
   const [body, setBody] = useState('')
   const remaining = MAX_MESSAGE_LENGTH - body.length
   const canSend = body.trim().length > 0 && remaining >= 0
@@ -36,7 +43,10 @@ export function Composer({ onSend }: { onSend: (body: string) => void }) {
         rows={1}
         value={body}
         maxLength={MAX_MESSAGE_LENGTH}
-        onChange={(e) => setBody(e.target.value)}
+        onChange={(e) => {
+          setBody(e.target.value)
+          if (e.target.value.trim()) onTyping?.()
+        }}
         onKeyDown={onKeyDown}
         placeholder="Write a message"
         className="max-h-40 min-h-10 flex-1 resize-none rounded-none border-0 px-1"

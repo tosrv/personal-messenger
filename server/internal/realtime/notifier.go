@@ -10,11 +10,16 @@ import (
 
 // Event is the envelope for every server-to-client frame. See docs/realtime.md.
 type Event struct {
-	Type    string           `json:"type"`
-	Message *message.Message `json:"message,omitempty"`
+	Type           string           `json:"type"`
+	Message        *message.Message `json:"message,omitempty"`
+	ConversationID int64            `json:"conversation_id,omitempty"`
+	UserID         int64            `json:"user_id,omitempty"`
 }
 
-const EventMessageNew = "message.new"
+const (
+	EventMessageNew = "message.new"
+	EventTyping     = "typing"
+)
 
 // MemberLookup lists a conversation's members (implemented by conversation.Service).
 type MemberLookup interface {

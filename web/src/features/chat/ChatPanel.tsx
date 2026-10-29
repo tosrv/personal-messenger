@@ -9,6 +9,7 @@ import { ApiError } from '../../lib/api'
 import { dayKey, formatDayLabel, formatTime } from '../../lib/time'
 import { useMe } from '../auth/api'
 import { GUEST_RETENTION_NOTE } from '../auth/guestPolicy'
+import { useIsTyping, useTypingSignal } from '../realtime/typing'
 import {
   useConversation,
   useDeleteChat,
@@ -74,9 +75,15 @@ export function ChatPanel({
         >
           <ArrowLeft className="size-5" aria-hidden />
         </Button>
-        <Link to={`/u/${peer.username}`} className="flex items-center gap-2 hover:underline">
+        <Link
+          to={`/u/${peer.username}`}
+          className="flex min-w-0 items-center gap-2 hover:underline"
+        >
           <Avatar name={peer.display_name} src={peer.avatar_url} size="sm" />
-          <span className="font-medium">{peer.display_name}</span>
+          <span className="flex min-w-0 flex-col leading-tight">
+            <span className="truncate font-medium">{peer.display_name}</span>
+            <PeerStatus conversationId={conversationId} />
+          </span>
         </Link>
         {peer.is_guest && <GuestBadge />}
         <DeleteChatButton conversationId={conversationId} peer={peer} onDeleted={onDeleted} />
@@ -88,6 +95,17 @@ export function ChatPanel({
         lastReadMessageId={conversation.data.last_read_message_id}
       />
     </section>
+  )
+}
+
+/** "typing…" under the peer's name while they type. */
+function PeerStatus({ conversationId }: { conversationId: number }) {
+  const typing = useIsTyping(conversationId)
+  if (!typing) return null
+  return (
+    <span className="text-xs text-accent" aria-live="polite">
+      typing…
+    </span>
   )
 }
 
@@ -148,6 +166,7 @@ function Thread({
   const history = useMessages(conversationId)
   const send = useSendMessage(conversationId)
   const markRead = useMarkRead(conversationId)
+  const { notifyTyping, resetTyping } = useTypingSignal()
   const [pending, setPending] = useState<Pending[]>([])
 
   const scroller = useRef<HTMLDivElement>(null)
@@ -207,6 +226,7 @@ function Thread({
       createdAt: new Date().toISOString(),
     }
     nearBottom.current = true
+    resetTyping(conversationId)
     setPending((list) => [...list, p])
     deliver(p)
   }
@@ -301,7 +321,7 @@ function Thread({
           {GUEST_RETENTION_NOTE}
         </p>
       )}
-      <Composer onSend={onSend} />
+      <Composer onSend={onSend} onTyping={() => notifyTyping(conversationId)} />
     </>
   )
 }

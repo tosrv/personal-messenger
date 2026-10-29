@@ -2,6 +2,7 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { mockApi } from '../../test/mockApi'
 import { renderWithProviders } from '../../test/render'
+import { TypingContext } from '../realtime/typing'
 import { ChatsPage } from './ChatsPage'
 
 const me = { id: 1, username: 'tomy', display_name: 'Tomy', email: 't@x.com' }
@@ -151,5 +152,50 @@ describe('ChatPanel date separators', () => {
         : li.querySelector('p')?.textContent,
     )
     expect(order).toEqual(['[Yesterday]', 'first', 'second', '[Today]', 'third'])
+  })
+})
+
+describe('ChatPanel typing indicator', () => {
+  function renderWithTyping(typing: Map<number, number>, notifyTyping = vi.fn()) {
+    const resetTyping = vi.fn()
+    mockApi({
+      'GET /me': () => [200, me],
+      'GET /conversations/7': () => [200, conversation],
+      'GET /conversations/7/messages': () => [200, { messages: [hello], has_more: false }],
+      'POST /conversations/7/read': () => [204],
+      'GET /conversations': () => [200, { conversations: [conversation] }],
+      'POST /conversations/7/messages': (init) => [
+        201,
+        { ...hello, id: 11, sender_id: 1, ...JSON.parse(String(init?.body)) },
+      ],
+    })
+    renderWithProviders(
+      <TypingContext.Provider value={{ typing, notifyTyping, resetTyping }}>
+        <ChatsPage />
+      </TypingContext.Provider>,
+      { path: '/chats', route: { pathname: '/chats', state: { conversationId: 7 } } },
+    )
+    return { notifyTyping, resetTyping }
+  }
+
+  it('shows "typing…" in the header and the conversation list while the peer types', async () => {
+    renderWithTyping(new Map([[7, 2]]))
+    await screen.findByText('Hello from Alice')
+    expect(await screen.findAllByText('typing…')).toHaveLength(2)
+  })
+
+  it('shows nothing when nobody is typing', async () => {
+    renderWithTyping(new Map())
+    await screen.findByText('Hello from Alice')
+    expect(screen.queryByText('typing…')).not.toBeInTheDocument()
+  })
+
+  it('signals typing while composing and resets after sending', async () => {
+    const { notifyTyping, resetTyping } = renderWithTyping(new Map())
+    await screen.findByText('Hello from Alice')
+    await userEvent.type(screen.getByLabelText('Message'), 'Hi')
+    expect(notifyTyping).toHaveBeenCalledWith(7)
+    await userEvent.type(screen.getByLabelText('Message'), '{Enter}')
+    expect(resetTyping).toHaveBeenCalledWith(7)
   })
 })

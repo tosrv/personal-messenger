@@ -24,10 +24,13 @@ export function backoffDelay(attempt: number, random = Math.random): number {
 
 /**
  * A WebSocket that reconnects with exponential backoff (PRD §6.5).
- * The server only pushes events; messages are sent over REST.
+ * Messages are sent over REST; the only client frame is the ephemeral
+ * "typing" signal (ADR 0009), sent with `send`.
  */
 export class RealtimeClient {
   private socket: WebSocket | null = null
+  /** True between "ready" and the socket closing. */
+  private ready = false
   private attempt = 0
   private timer: ReturnType<typeof setTimeout> | undefined
   private stopped = false
@@ -51,6 +54,14 @@ export class RealtimeClient {
     document.removeEventListener('visibilitychange', this.onVisibility)
     this.socket?.close(1000)
     this.socket = null
+    this.ready = false
+  }
+
+  /** Sends a frame if connected. Returns false (and drops it) otherwise. */
+  send(frame: object): boolean {
+    if (!this.socket || !this.ready) return false
+    this.socket.send(JSON.stringify(frame))
+    return true
   }
 
   private connect() {
@@ -69,6 +80,7 @@ export class RealtimeClient {
         return
       }
       if (event.type === 'ready') {
+        this.ready = true
         this.attempt = 0
         this.opts.onStatus('online')
         this.opts.onConnected()
@@ -79,6 +91,7 @@ export class RealtimeClient {
     socket.onclose = () => {
       if (this.socket !== socket) return // superseded by a newer socket
       this.socket = null
+      this.ready = false
       if (this.stopped) return
       this.opts.onStatus('offline')
       const delay = backoffDelay(this.attempt++, this.opts.random)

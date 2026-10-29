@@ -1,7 +1,8 @@
 // Package realtime pushes events to browsers over WebSocket.
 //
-// The connection is server-to-client only: clients send messages through the
-// REST API, which stores them first (ADR 0003, ADR 0006). The hub keeps an
+// Clients send messages through the REST API, which stores them first
+// (ADR 0003, ADR 0006); the only client frame is the ephemeral "typing"
+// signal (ADR 0009). The hub keeps an
 // in-memory registry of connections per user, which is valid because the
 // MVP runs a single backend instance (ADR 0005).
 package realtime

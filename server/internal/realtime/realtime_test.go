@@ -29,6 +29,10 @@ func (m staticMembers) MemberIDs(_ context.Context, conversationID int64) ([]int
 
 // newServer serves /ws with a fake auth step: the user ID comes from ?user=.
 func newServer(t *testing.T, hub *Hub) *httptest.Server {
+	return newServerWithMembers(t, hub, staticMembers{})
+}
+
+func newServerWithMembers(t *testing.T, hub *Hub, members MemberLookup) *httptest.Server {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -37,7 +41,7 @@ func newServer(t *testing.T, hub *Hub) *httptest.Server {
 		httpx.SetUserID(c, id)
 	})
 	alwaysValid := func(context.Context, *gin.Context) bool { return true }
-	NewHandler(hub, []string{"http://allowed.test"}, alwaysValid, quiet).Register(g)
+	NewHandler(hub, members, []string{"http://allowed.test"}, alwaysValid, quiet).Register(g)
 	srv := httptest.NewServer(r)
 	t.Cleanup(srv.Close)
 	return srv

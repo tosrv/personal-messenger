@@ -16,7 +16,8 @@ import (
 const (
 	pingInterval = 30 * time.Second
 	writeTimeout = 10 * time.Second
-	// Clients never send data frames; only control frames are expected.
+	// Client frames are tiny ("typing" only, ADR 0009); anything larger
+	// closes the connection.
 	readLimit = 512
 )
 
@@ -26,6 +27,7 @@ type SessionCheck func(ctx context.Context, c *gin.Context) bool
 
 type Handler struct {
 	hub            *Hub
+	members        MemberLookup
 	originPatterns []string
 	sessionValid   SessionCheck
 	logger         *slog.Logger
@@ -33,14 +35,15 @@ type Handler struct {
 
 // NewHandler accepts connections only from allowedOrigins (PRD §8: WebSocket
 // origin validation). Each origin is reduced to its host for the check.
-func NewHandler(hub *Hub, allowedOrigins []string, sessionValid SessionCheck, logger *slog.Logger) *Handler {
+// members authorizes client frames such as "typing".
+func NewHandler(hub *Hub, members MemberLookup, allowedOrigins []string, sessionValid SessionCheck, logger *slog.Logger) *Handler {
 	var patterns []string
 	for _, o := range allowedOrigins {
 		if u, err := url.Parse(o); err == nil && u.Host != "" {
 			patterns = append(patterns, u.Host)
 		}
 	}
-	return &Handler{hub: hub, originPatterns: patterns, sessionValid: sessionValid, logger: logger}
+	return &Handler{hub: hub, members: members, originPatterns: patterns, sessionValid: sessionValid, logger: logger}
 }
 
 // Register mounts GET /ws; rg must use auth.RequireSession, which
@@ -62,10 +65,42 @@ func (h *Handler) serve(c *gin.Context) {
 	cl := h.hub.register(userID)
 	defer h.hub.unregister(cl)
 
-	// CloseRead answers pings/close frames and cancels ctx when the peer goes away.
-	ctx := conn.CloseRead(c.Request.Context())
+	// The read loop answers pings/close frames, handles client frames, and
+	// cancels ctx when the peer goes away or breaks the rules.
+	ctx, cancel := context.WithCancel(c.Request.Context())
+	defer cancel()
+	violated := make(chan struct{})
+	go func() {
+		defer cancel()
+		if !h.readLoop(ctx, conn, newInbound(userID, h.members, h.hub)) {
+			close(violated)
+		}
+	}()
 	status, reason := h.writeLoop(ctx, c, conn, cl)
+	select {
+	case <-violated:
+		status, reason = websocket.StatusPolicyViolation, "too many invalid frames"
+	default:
+	}
 	_ = conn.Close(status, reason)
+}
+
+// readLoop reads client frames until the connection ends. It returns false
+// if the client sent too many rejected frames.
+func (h *Handler) readLoop(ctx context.Context, conn *websocket.Conn, in *inbound) bool {
+	for {
+		typ, data, err := conn.Read(ctx)
+		if err != nil {
+			return true
+		}
+		if typ != websocket.MessageText {
+			data = nil // binary frames are never valid
+		}
+		if !in.handle(ctx, data, time.Now()) {
+			h.logger.Warn("realtime: closing connection after too many rejected frames", "user_id", in.userID)
+			return false
+		}
+	}
 }
 
 func (h *Handler) writeLoop(ctx context.Context, c *gin.Context, conn *websocket.Conn, cl *client) (websocket.StatusCode, string) {

@@ -45,11 +45,35 @@ A message was stored in a conversation the user belongs to. It is sent to every 
 }
 ```
 
+### `typing`
+
+The other member of the conversation is typing ([ADR 0009](adr/0009-realtime-events-phase-2.md)). Sent only to the other members' connections, never stored. The client shows "typing…" for 6 s after the last event, and clears it early when a `message.new` from that user arrives.
+
+```json
+{ "type": "typing", "conversation_id": 7, "user_id": 2 }
+```
+
 The client must ignore event types it does not recognise, so new events can be added without breaking old tabs.
 
 ## Client → server
 
-Clients send **no data frames**. The server sets a 512-byte read limit and closes the connection if a client sends data anyway. Messages are sent with:
+The only data frame a client may send is the ephemeral typing signal ([ADR 0009](adr/0009-realtime-events-phase-2.md)):
+
+```json
+{ "type": "typing", "conversation_id": 7 }
+```
+
+The web client sends it at most once every 3 s per conversation while the user types. The server checks every frame:
+
+| Check | On failure |
+|---|---|
+| Text frame of at most 512 bytes | Connection closed (`1009`) |
+| JSON object with exactly `type: "typing"` and a positive `conversation_id` | Dropped, one strike |
+| Per-connection token bucket: burst 5, 1 frame per second | Dropped, one strike |
+| Sender is a member of the conversation | Dropped, one strike |
+| More than 20 strikes | Connection closed (`1008`) |
+
+Everything that changes stored state goes through REST. Messages are sent with:
 
 ```
 POST /api/v1/conversations/:id/messages

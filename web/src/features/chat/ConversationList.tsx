@@ -1,8 +1,10 @@
+import { useContext } from 'react'
 import { Avatar } from '../../components/Avatar'
 import { GuestBadge } from '../../components/GuestBadge'
 import { EmptyState, ErrorState } from '../../components/States'
 import { formatShortTime } from '../../lib/time'
 import { useMe } from '../auth/api'
+import { TypingContext } from '../realtime/typing'
 import { useConversations } from './api'
 import { Button } from '@/components/ui/button'
 import { WithTooltip } from '@/components/ui/tooltip'
@@ -21,6 +23,7 @@ export function ConversationList({
 }) {
   const me = useMe()
   const conversations = useConversations()
+  const { typing } = useContext(TypingContext)
 
   if (conversations.isPending) return compact ? null : <ConversationListSkeleton />
   if (conversations.isError) {
@@ -107,9 +110,13 @@ export function ConversationList({
                   <span
                     className={`truncate text-sm ${c.unread_count ? 'font-medium text-fg' : 'text-muted'}`}
                   >
-                    {c.last_message
-                      ? `${mine ? 'You: ' : ''}${c.last_message.body}`
-                      : `@${c.peer.username}`}
+                    {typing.has(c.id) ? (
+                      <span className="text-accent">typing…</span>
+                    ) : c.last_message ? (
+                      `${mine ? 'You: ' : ''}${c.last_message.body}`
+                    ) : (
+                      `@${c.peer.username}`
+                    )}
                   </span>
                   {c.unread_count > 0 && (
                     <span
