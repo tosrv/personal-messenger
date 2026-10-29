@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Version** | 1.0 |
+| **Version** | 1.1 — adds guest mode ([ADR 0008](adr/0008-guest-mode.md)) |
 | **Status** | Draft — initial development |
 | **Product type** | Self-hosted, real-time messaging web app |
 | **Platform** | Web |
@@ -134,6 +134,17 @@ Needs:
 4. The app loads message history page by page.
 5. New messages arrive through the real-time connection.
 
+### Flow D — Contacting the owner as a guest (no Google account)
+
+Available only when guest mode is enabled (see §6.9).
+
+1. The visitor opens the sign-in page, or follows the **Chat with me** link.
+2. Instead of Google, the visitor chooses to continue as a guest and enters a display name.
+3. The backend creates a guest account and a normal session cookie.
+4. The visitor is taken straight to the conversation with the owner.
+5. The visitor is told that the guest account only works in this browser and is deleted after a period without activity (§6.9).
+6. The owner sees the conversation in their list, marked as a guest, and replies as usual.
+
 ## 6. Functional Requirements
 
 Priority levels: **P0** = required for the MVP.
@@ -149,6 +160,8 @@ Priority levels: **P0** = required for the MVP.
 - Sessions use cookies with appropriate security settings.
 - Private endpoints reject requests without a valid session.
 - Changing the email on the same Google account must not create a duplicate account.
+- **Exception — guest accounts:** when guest mode is enabled, a visitor can also get a session without Google by giving only a display name (§6.9).
+- **Sliding sessions** (all accounts): sessions last 30 days. A session that is still in use is extended to the full 30 days once less than half of that time is left, so active users are not signed out while using the app.
 
 ### 6.2 User Profile — P0
 
@@ -246,6 +259,35 @@ Design principles:
 - After signing in, the user returns to where they were going.
 - Links and redirects only accept allowed destinations, to prevent open redirects.
 
+### 6.9 Guest Mode — P0 (when enabled)
+
+Decided in [ADR 0008](adr/0008-guest-mode.md). Guest mode lowers the barrier for the primary user (§4) and supports the hypothesis that an easy start matters most (§2).
+
+**Enabling**
+
+- Guest mode is on only when the owner's username is configured (`OWNER_USERNAME`). Without it, sign-in is Google-only.
+- A public configuration endpoint tells the web app whether guest mode is on and who the owner is.
+
+**Guest accounts**
+
+- Created with only a display name. No Google identity and no email are stored.
+- Get a generated username such as `guest_4821`. Usernames starting with `guest` are reserved for guests, so no one can impersonate one.
+- Can change their display name, but not their username.
+- Are marked as guests wherever they appear (conversation list, chat header, profile).
+- Live only in the browser that holds the session cookie. Signing out or clearing site data ends the account: there is no way to sign back in, and no upgrade to a Google account yet.
+
+**Restrictions**
+
+- A guest can only chat with the owner, and only the owner can start a chat with a guest.
+- Guests cannot search for users, and never appear in search results.
+- Creating guest accounts is rate-limited to 3 per minute per IP address.
+
+**Retention**
+
+- A guest who never sends a message is deleted after **7 days**.
+- A guest whose chat has had no new message for **90 days** is deleted together with that chat, including both sides' messages.
+- Guests are told about this on the guest sign-in form, in the chat, and in settings.
+
 ## 7. Technical Requirements
 
 ### Frontend
@@ -306,13 +348,15 @@ Minimum security requirements:
 - Protect relevant flows against CSRF.
 - Check the `Origin` of WebSocket connections.
 - Check permissions on the server for every access to a conversation or message.
-- Rate-limit sign-in, search, and message sending.
+- Rate-limit sign-in, guest account creation, search, and message sending.
 - Limit message payload size.
 - Validate and normalize all input.
 - Manage secrets through environment variables or a secret manager.
 - Never write emails, tokens, session IDs, or credentials to logs.
 - Signing out invalidates the session on the server.
 - Protect database backups and restrict who can access them.
+
+Guest accounts (§6.9) have no verified identity at all. They weaken spam protection, which is why they can only talk to the owner and are rate-limited per IP address. If that is not enough, a CAPTCHA on guest creation is the next step.
 
 Signing in with Google only proves the user controls a Google account; it does not verify their real name.
 
@@ -360,6 +404,7 @@ The MVP is complete when all of the following are true:
 - [ ] New users get an internal account automatically.
 - [ ] Sign-in sessions stay valid according to the session policy.
 - [ ] Users can sign out.
+- [ ] When guest mode is enabled, visitors can chat with the owner as a guest, and guest restrictions and retention (§6.9) are enforced.
 - [ ] Users can find other users by username.
 - [ ] Users can start a one-to-one conversation.
 - [ ] Users can send and receive messages in real time.
@@ -492,7 +537,7 @@ Success is not measured by user count alone.
 | Risk | Mitigation |
 |---|---|
 | No active users | Keep using the app personally and treat it as an engineering project |
-| Spam or abuse | Google sign-in, rate limiting, blocking, and basic moderation |
+| Spam or abuse | Google sign-in, guests limited to the owner, rate limiting, blocking, and basic moderation |
 | Messages lost during reconnect | Database persistence, acknowledgments, and re-syncing |
 | Real-time complexity grows | Start with direct messages and a single backend instance |
 | Infrastructure costs grow | Start with a VPS and the minimum set of services |
