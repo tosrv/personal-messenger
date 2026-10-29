@@ -1,6 +1,6 @@
 # Real-time Protocol
 
-Personal Messenger pushes new messages to browsers over a WebSocket. Sending still goes through the REST API ([ADR 0006](adr/0006-send-over-rest-receive-over-websocket.md)), and PostgreSQL stays the source of truth ([ADR 0003](adr/0003-postgres-source-of-truth.md)).
+Personal Messenger pushes new messages, typing indicators, read receipts and presence to browsers over a WebSocket. Sending still goes through the REST API ([ADR 0006](adr/0006-send-over-rest-receive-over-websocket.md)); the only frame a client sends is the ephemeral typing signal ([ADR 0009](adr/0009-realtime-events-phase-2.md)). PostgreSQL stays the source of truth ([ADR 0003](adr/0003-postgres-source-of-truth.md)).
 
 ## Connecting
 
