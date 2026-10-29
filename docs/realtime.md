@@ -53,6 +53,14 @@ The other member of the conversation is typing ([ADR 0009](adr/0009-realtime-eve
 { "type": "typing", "conversation_id": 7, "user_id": 2 }
 ```
 
+### `conversation.read`
+
+A member moved their read marker forward (`POST /api/v1/conversations/:id/read`). Sent to every member: the other member uses it for read receipts, and the reader's other tabs refresh unread counts. Sent only when the marker actually moved. After a reconnect, the conversation summary's `peer_last_read_message_id` restores receipts.
+
+```json
+{ "type": "conversation.read", "conversation_id": 7, "user_id": 2, "last_read_message_id": 42 }
+```
+
 The client must ignore event types it does not recognise, so new events can be added without breaking old tabs.
 
 ## Client → server

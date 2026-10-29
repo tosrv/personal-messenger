@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { RealtimeClient, websocketUrl, type ConnectionStatus } from '../../lib/realtime'
 import { useMe } from '../auth/api'
-import { receiveMessage, syncAll, type Message } from '../chat/api'
+import { receiveMessage, receiveRead, syncAll, type Message } from '../chat/api'
 import { StatusContext } from './status'
 import { createTypingThrottle, TypingContext, useTypingState } from './typing'
 
@@ -34,6 +34,21 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           typeof event.user_id === 'number'
         ) {
           startTyping(event.conversation_id, event.user_id)
+        } else if (
+          event.type === 'conversation.read' &&
+          typeof event.conversation_id === 'number' &&
+          typeof event.user_id === 'number' &&
+          typeof event.last_read_message_id === 'number'
+        ) {
+          receiveRead(
+            queryClient,
+            {
+              conversation_id: event.conversation_id,
+              user_id: event.user_id,
+              last_read_message_id: event.last_read_message_id,
+            },
+            userId,
+          )
         }
       },
     })

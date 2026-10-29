@@ -14,11 +14,14 @@ type Event struct {
 	Message        *message.Message `json:"message,omitempty"`
 	ConversationID int64            `json:"conversation_id,omitempty"`
 	UserID         int64            `json:"user_id,omitempty"`
+	// LastReadMessageID is set on "conversation.read".
+	LastReadMessageID int64 `json:"last_read_message_id,omitempty"`
 }
 
 const (
 	EventMessageNew = "message.new"
 	EventTyping     = "typing"
+	EventRead       = "conversation.read"
 )
 
 // MemberLookup lists a conversation's members (implemented by conversation.Service).
@@ -47,6 +50,25 @@ func (n *Notifier) MessageCreated(ctx context.Context, m message.Message) {
 		return
 	}
 	payload, err := json.Marshal(Event{Type: EventMessageNew, Message: &m})
+	if err != nil {
+		n.logger.Error("realtime: encode event", "err", err)
+		return
+	}
+	n.hub.SendToUsers(ids, payload)
+}
+
+// ConversationRead implements conversation.ReadNotifier: it tells every
+// member (the other one for read receipts, the reader's other tabs for
+// unread counts) that userID has read up to lastReadMessageID.
+func (n *Notifier) ConversationRead(ctx context.Context, conversationID, userID, lastReadMessageID int64) {
+	ids, err := n.members.MemberIDs(ctx, conversationID)
+	if err != nil {
+		n.logger.Error("realtime: list members", "conversation_id", conversationID, "err", err)
+		return
+	}
+	payload, err := json.Marshal(Event{
+		Type: EventRead, ConversationID: conversationID, UserID: userID, LastReadMessageID: lastReadMessageID,
+	})
 	if err != nil {
 		n.logger.Error("realtime: encode event", "err", err)
 		return

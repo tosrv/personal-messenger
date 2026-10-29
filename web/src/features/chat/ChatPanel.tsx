@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { ArrowLeft, Trash2 } from 'lucide-react'
+import { ArrowLeft, Check, CheckCheck, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Avatar } from '../../components/Avatar'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
@@ -93,6 +93,7 @@ export function ChatPanel({
         key={conversationId}
         conversationId={conversationId}
         lastReadMessageId={conversation.data.last_read_message_id}
+        peerLastReadMessageId={conversation.data.peer_last_read_message_id}
       />
     </section>
   )
@@ -158,9 +159,11 @@ function DeleteChatButton({
 function Thread({
   conversationId,
   lastReadMessageId,
+  peerLastReadMessageId,
 }: {
   conversationId: number
   lastReadMessageId: number
+  peerLastReadMessageId: number
 }) {
   const me = useMe()
   const history = useMessages(conversationId)
@@ -285,6 +288,9 @@ function Thread({
                   )}
                   <Bubble mine={m.sender_id === me.data?.id} body={m.body}>
                     {formatTime(m.created_at)}
+                    {m.sender_id === me.data?.id && (
+                      <Receipt read={m.id <= peerLastReadMessageId} />
+                    )}
                   </Bubble>
                 </Fragment>
               ))}
@@ -337,6 +343,21 @@ function DaySeparator({ iso }: { iso: string }) {
         <time dateTime={iso}>{formatDayLabel(iso)}</time>
       </span>
     </li>
+  )
+}
+
+/** Read receipt on the current user's own stored messages. */
+function Receipt({ read }: { read: boolean }) {
+  const Icon = read ? CheckCheck : Check
+  return (
+    <span
+      role="img"
+      aria-label={read ? 'Read' : 'Sent'}
+      title={read ? 'Read' : 'Sent'}
+      className={`ml-1 inline-flex align-middle ${read ? 'text-accent' : ''}`}
+    >
+      <Icon className="size-3.5" aria-hidden />
+    </span>
   )
 }
 

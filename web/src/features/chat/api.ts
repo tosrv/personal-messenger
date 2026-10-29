@@ -26,6 +26,8 @@ export type Conversation = {
   last_message: { id: number; sender_id: number; body: string; created_at: string } | null
   unread_count: number
   last_read_message_id: number
+  /** The peer has read the viewer's messages up to this id (read receipts). */
+  peer_last_read_message_id: number
   created_at: string
 }
 
@@ -169,6 +171,31 @@ export async function syncAll(qc: QueryClient) {
 export function receiveMessage(qc: QueryClient, m: Message) {
   appendMessages(qc, m.conversation_id, [m])
   void qc.invalidateQueries({ queryKey: conversationsKey })
+}
+
+/**
+ * Applies a "conversation.read" event. When the peer read, their marker moves
+ * forward in the cache (read receipts). When it was the current user in
+ * another tab, unread counts are refetched.
+ */
+export function receiveRead(
+  qc: QueryClient,
+  event: { conversation_id: number; user_id: number; last_read_message_id: number },
+  myId: number | undefined,
+) {
+  if (event.user_id === myId) {
+    void qc.invalidateQueries({ queryKey: conversationsKey })
+    return
+  }
+  const bump = (c: Conversation): Conversation =>
+    c.id === event.conversation_id && event.last_read_message_id > c.peer_last_read_message_id
+      ? { ...c, peer_last_read_message_id: event.last_read_message_id }
+      : c
+  qc.setQueryData<Conversation>(conversationKey(event.conversation_id), (c) => c && bump(c))
+  qc.setQueryData<{ conversations: Conversation[] }>(
+    conversationsKey,
+    (data) => data && { conversations: data.conversations.map(bump) },
+  )
 }
 
 /** Merges messages into the newest page of the cache, ignoring ones already present. */

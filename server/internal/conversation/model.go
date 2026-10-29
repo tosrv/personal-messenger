@@ -27,5 +27,8 @@ type Summary struct {
 	LastMessage       *LastMessage `json:"last_message"`
 	UnreadCount       int          `json:"unread_count"`
 	LastReadMessageID int64        `json:"last_read_message_id"`
-	CreatedAt         time.Time    `json:"created_at"`
+	// PeerLastReadMessageID is the peer's read marker: the viewer's messages
+	// up to this id have been read (read receipts, ADR 0009).
+	PeerLastReadMessageID int64     `json:"peer_last_read_message_id"`
+	CreatedAt             time.Time `json:"created_at"`
 }

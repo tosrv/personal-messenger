@@ -15,7 +15,7 @@ type Repository interface {
 	MemberIDs(ctx context.Context, conversationID int64) ([]int64, error)
 	ListForUser(ctx context.Context, userID int64) ([]Summary, error)
 	GetForUser(ctx context.Context, conversationID, userID int64) (Summary, error)
-	MarkRead(ctx context.Context, conversationID, userID, messageID int64) error
+	MarkRead(ctx context.Context, conversationID, userID, messageID int64) (int64, bool, error)
 	ClearForUser(ctx context.Context, conversationID, userID int64) (bool, error)
 	VisibleFrom(ctx context.Context, conversationID, userID int64) (int64, error)
 }
@@ -26,11 +26,17 @@ type UserLookup interface {
 	Me(ctx context.Context, userID int64) (user.Me, error)
 }
 
+// ReadNotifier announces a moved read marker (implemented by realtime.Notifier).
+type ReadNotifier interface {
+	ConversationRead(ctx context.Context, conversationID, userID, lastReadMessageID int64)
+}
+
 type Service struct {
 	repo  Repository
 	users UserLookup
 	// owner is the username guests may talk to (ADR 0008). Empty = nobody.
 	owner string
+	reads ReadNotifier
 }
 
 func NewService(repo Repository, users UserLookup, ownerUsername string) *Service {
@@ -38,6 +44,10 @@ func NewService(repo Repository, users UserLookup, ownerUsername string) *Servic
 }
 
 var errGuestsOwnerOnly = fmt.Errorf("%w: guests can only chat with the owner", apperr.ErrForbidden)
+
+// SetReadNotifier wires read receipts. It is a setter because the notifier
+// itself looks up members through this service.
+func (s *Service) SetReadNotifier(n ReadNotifier) { s.reads = n }
 
 func (s *Service) isOwner(username string) bool {
 	return s.owner != "" && strings.EqualFold(username, s.owner)
@@ -83,7 +93,14 @@ func (s *Service) MarkRead(ctx context.Context, viewerID, conversationID, messag
 	if err := s.RequireMember(ctx, conversationID, viewerID); err != nil {
 		return err
 	}
-	return s.repo.MarkRead(ctx, conversationID, viewerID, messageID)
+	marker, moved, err := s.repo.MarkRead(ctx, conversationID, viewerID, messageID)
+	if err != nil {
+		return err
+	}
+	if moved && s.reads != nil {
+		s.reads.ConversationRead(ctx, conversationID, viewerID, marker)
+	}
+	return nil
 }
 
 // DeleteForMe removes the chat from the viewer's list and hides its history

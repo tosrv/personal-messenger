@@ -78,16 +78,33 @@ func TestPostgresRepository(t *testing.T) {
 	})
 
 	t.Run("mark read moves forward only and is clamped", func(t *testing.T) {
-		_ = repo.MarkRead(ctx, ab, alice, 1)
+		if marker, moved, err := repo.MarkRead(ctx, ab, alice, 1); err != nil || !moved || marker != 1 {
+			t.Errorf("read 1 = %d, %v, %v", marker, moved, err)
+		}
 		s, _ := repo.GetForUser(ctx, ab, alice)
 		if s.UnreadCount != 1 || s.LastReadMessageID != 1 {
 			t.Errorf("after read 1: %+v", s)
 		}
-		_ = repo.MarkRead(ctx, ab, alice, 999) // clamped to newest (2)
-		_ = repo.MarkRead(ctx, ab, alice, 1)   // ignored: backwards
+		// clamped to newest (2)
+		if marker, moved, err := repo.MarkRead(ctx, ab, alice, 999); err != nil || !moved || marker != 2 {
+			t.Errorf("read 999 = %d, %v, %v", marker, moved, err)
+		}
+		// ignored: backwards, and repeating the same id
+		for _, id := range []int64{1, 2} {
+			if _, moved, err := repo.MarkRead(ctx, ab, alice, id); err != nil || moved {
+				t.Errorf("read %d again: moved = %v, err = %v", id, moved, err)
+			}
+		}
 		s, _ = repo.GetForUser(ctx, ab, alice)
 		if s.UnreadCount != 0 || s.LastReadMessageID != 2 {
 			t.Errorf("after read all: %+v", s)
+		}
+	})
+
+	t.Run("the sender sees the peer's read marker (read receipts)", func(t *testing.T) {
+		s, err := repo.GetForUser(ctx, ab, bob)
+		if err != nil || s.PeerLastReadMessageID != 2 || s.LastReadMessageID != 0 {
+			t.Errorf("bob's view = %+v, %v", s, err)
 		}
 	})
 }

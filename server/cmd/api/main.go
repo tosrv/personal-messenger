@@ -53,6 +53,7 @@ func main() {
 	conversations := conversation.NewService(conversation.NewPostgresRepository(pool), users, cfg.OwnerUsername)
 	hub := realtime.NewHub()
 	notifier := realtime.NewNotifier(hub, conversations, logger)
+	conversations.SetReadNotifier(notifier)
 	messages := message.NewService(message.NewPostgresRepository(pool), conversations, notifier)
 
 	var authHandler *auth.Handler

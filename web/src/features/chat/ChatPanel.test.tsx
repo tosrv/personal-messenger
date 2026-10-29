@@ -199,3 +199,36 @@ describe('ChatPanel typing indicator', () => {
     expect(resetTyping).toHaveBeenCalledWith(7)
   })
 })
+
+describe('ChatPanel read receipts', () => {
+  it("marks my messages as read up to the peer's marker", async () => {
+    const mine = (id: number, body: string) => ({
+      ...hello,
+      id,
+      sender_id: 1,
+      client_message_id: `c-${id}`,
+      body,
+    })
+    mockApi({
+      'GET /me': () => [200, me],
+      'GET /conversations/7': () => [200, { ...conversation, peer_last_read_message_id: 11 }],
+      'GET /conversations/7/messages': () => [
+        200,
+        { messages: [hello, mine(11, 'seen'), mine(12, 'not yet')], has_more: false },
+      ],
+      'POST /conversations/7/read': () => [204],
+      'GET /conversations': () => [200, { conversations: [] }],
+    })
+    renderWithProviders(<ChatsPage />, {
+      path: '/chats',
+      route: { pathname: '/chats', state: { conversationId: 7 } },
+    })
+    await screen.findByText('not yet')
+    const messages = screen.getAllByRole('listitem').filter((li) => li.querySelector('p'))
+    const receipt = (body: string) =>
+      messages.find((li) => li.textContent?.includes(body))?.querySelector('[role="img"]')
+    expect(receipt('seen')).toHaveAccessibleName('Read')
+    expect(receipt('not yet')).toHaveAccessibleName('Sent')
+    expect(receipt('Hello from Alice')).toBeNull()
+  })
+})

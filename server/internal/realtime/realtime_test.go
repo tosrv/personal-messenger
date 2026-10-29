@@ -169,3 +169,22 @@ func TestSlowClientIsDroppedInsteadOfBlocking(t *testing.T) {
 		t.Error("slow client was not dropped")
 	}
 }
+
+func TestReadReceiptGoesToEveryMember(t *testing.T) {
+	hub := NewHub()
+	srv := newServer(t, hub)
+	alice := dial(t, srv, 1, "http://allowed.test")
+	bob := dial(t, srv, 2, "http://allowed.test")
+	carol := dial(t, srv, 3, "http://allowed.test")
+	waitFor(t, func() bool { return hub.Connections() == 3 })
+
+	NewNotifier(hub, staticMembers{7: {1, 2}}, quiet).ConversationRead(context.Background(), 7, 2, 42)
+
+	for name, conn := range map[string]*websocket.Conn{"alice": alice, "bob": bob} {
+		ev := read(t, conn)
+		if ev.Type != EventRead || ev.ConversationID != 7 || ev.UserID != 2 || ev.LastReadMessageID != 42 {
+			t.Errorf("%s got %+v", name, ev)
+		}
+	}
+	expectSilence(t, "carol", carol)
+}
