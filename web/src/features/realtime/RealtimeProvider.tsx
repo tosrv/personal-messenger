@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { RealtimeClient, websocketUrl, type ConnectionStatus } from '../../lib/realtime'
 import { useMe } from '../auth/api'
 import { receiveMessage, receivePresence, receiveRead, syncAll, type Message } from '../chat/api'
+import { useInAppNotifications } from '../notifications/useInAppNotifications'
 import { StatusContext } from './status'
 import { createTypingThrottle, TypingContext, useTypingState } from './typing'
 
@@ -16,6 +17,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<ConnectionStatus>('connecting')
   const throttle = useRef<ReturnType<typeof createTypingThrottle> | null>(null)
   const { typing, start: startTyping, stop: stopTyping } = useTypingState()
+  const notify = useInAppNotifications(userId)
 
   useEffect(() => {
     if (!userId) return
@@ -28,6 +30,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           const m = event.message as Message
           stopTyping(m.conversation_id, m.sender_id)
           receiveMessage(queryClient, m)
+          notify(m)
         } else if (
           event.type === 'typing' &&
           typeof event.conversation_id === 'number' &&
@@ -71,7 +74,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       c.stop()
       throttle.current = null
     }
-  }, [userId, queryClient, startTyping, stopTyping])
+  }, [userId, queryClient, startTyping, stopTyping, notify])
 
   const disconnected = Boolean(userId) && status !== 'online'
   useEffect(() => {

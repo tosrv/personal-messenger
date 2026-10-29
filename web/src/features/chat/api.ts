@@ -51,9 +51,10 @@ export const conversationsKey = ['conversations'] as const
 const conversationKey = (id: number) => ['conversations', id] as const
 const messagesKey = (id: number) => ['messages', id] as const
 
-export function useConversations() {
+export function useConversations({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: conversationsKey,
+    enabled,
     queryFn: ({ signal }) => api<{ conversations: Conversation[] }>('/conversations', { signal }),
     select: (data) => data.conversations,
   })
