@@ -36,11 +36,13 @@ func (h *Handler) me(c *gin.Context) {
 	c.JSON(http.StatusOK, me)
 }
 
-// updateProfile accepts {"username"?, "display_name"?}; omitted fields are kept.
+// updateProfile accepts {"username"?, "display_name"?, "show_presence"?};
+// omitted fields are kept.
 func (h *Handler) updateProfile(c *gin.Context) {
 	var body struct {
-		Username    *string `json:"username"`
-		DisplayName *string `json:"display_name"`
+		Username     *string `json:"username"`
+		DisplayName  *string `json:"display_name"`
+		ShowPresence *bool   `json:"show_presence"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		httpx.Error(c, apperr.ErrInvalidInput)
@@ -48,7 +50,7 @@ func (h *Handler) updateProfile(c *gin.Context) {
 	}
 	userID, _ := httpx.UserID(c)
 	me, err := h.svc.UpdateProfile(c.Request.Context(), userID, ProfileUpdate{
-		Username: body.Username, DisplayName: body.DisplayName,
+		Username: body.Username, DisplayName: body.DisplayName, ShowPresence: body.ShowPresence,
 	})
 	if err != nil {
 		httpx.Error(c, err)

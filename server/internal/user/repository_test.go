@@ -44,6 +44,24 @@ func TestPostgresRepository(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	t.Run("presence is shown by default and can be hidden", func(t *testing.T) {
+		if !bob.ShowPresence {
+			t.Error("new user does not show presence")
+		}
+		off := false
+		u, err := repo.UpdateProfile(ctx, bob.ID, ProfileUpdate{ShowPresence: &off})
+		if err != nil || u.ShowPresence || u.Username != "bob" {
+			t.Errorf("hide = %+v, %v", u, err)
+		}
+		on := true
+		if u, err := repo.UpdateProfile(ctx, bob.ID, ProfileUpdate{ShowPresence: &on}); err != nil || !u.ShowPresence {
+			t.Errorf("show = %+v, %v", u, err)
+		}
+		if err := repo.SetLastSeen(ctx, bob.ID, time.Now()); err != nil {
+			t.Errorf("SetLastSeen: %v", err)
+		}
+	})
+
 	t.Run("update username conflict", func(t *testing.T) {
 		taken := "Alice"
 		if _, err := repo.UpdateProfile(ctx, bob.ID, ProfileUpdate{Username: &taken}); !errors.Is(err, errUsernameTaken) {

@@ -3,7 +3,9 @@ package conversation
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
+	"time"
 
 	"github.com/tosrv/personal-messenger/server/internal/apperr"
 	"github.com/tosrv/personal-messenger/server/internal/database/dbtest"
@@ -78,16 +80,33 @@ func TestPostgresRepository(t *testing.T) {
 	})
 
 	t.Run("mark read moves forward only and is clamped", func(t *testing.T) {
-		_ = repo.MarkRead(ctx, ab, alice, 1)
+		if marker, moved, err := repo.MarkRead(ctx, ab, alice, 1); err != nil || !moved || marker != 1 {
+			t.Errorf("read 1 = %d, %v, %v", marker, moved, err)
+		}
 		s, _ := repo.GetForUser(ctx, ab, alice)
 		if s.UnreadCount != 1 || s.LastReadMessageID != 1 {
 			t.Errorf("after read 1: %+v", s)
 		}
-		_ = repo.MarkRead(ctx, ab, alice, 999) // clamped to newest (2)
-		_ = repo.MarkRead(ctx, ab, alice, 1)   // ignored: backwards
+		// clamped to newest (2)
+		if marker, moved, err := repo.MarkRead(ctx, ab, alice, 999); err != nil || !moved || marker != 2 {
+			t.Errorf("read 999 = %d, %v, %v", marker, moved, err)
+		}
+		// ignored: backwards, and repeating the same id
+		for _, id := range []int64{1, 2} {
+			if _, moved, err := repo.MarkRead(ctx, ab, alice, id); err != nil || moved {
+				t.Errorf("read %d again: moved = %v, err = %v", id, moved, err)
+			}
+		}
 		s, _ = repo.GetForUser(ctx, ab, alice)
 		if s.UnreadCount != 0 || s.LastReadMessageID != 2 {
 			t.Errorf("after read all: %+v", s)
+		}
+	})
+
+	t.Run("the sender sees the peer's read marker (read receipts)", func(t *testing.T) {
+		s, err := repo.GetForUser(ctx, ab, bob)
+		if err != nil || s.PeerLastReadMessageID != 2 || s.LastReadMessageID != 0 {
+			t.Errorf("bob's view = %+v, %v", s, err)
 		}
 	})
 }
@@ -187,4 +206,70 @@ func TestDeleteForMe(t *testing.T) {
 			t.Errorf("reopened: list=%v summary=%+v", ids, s)
 		}
 	})
+}
+
+func TestPresence(t *testing.T) {
+	pool := dbtest.New(t)
+	ctx := context.Background()
+	repo := NewPostgresRepository(pool)
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO users (google_sub, email, display_name, username) VALUES
+		  ('g1', 'a@x.com', 'Alice', 'alice'), ('g2', 'b@x.com', 'Bob', 'bob'),
+		  ('g3', 'c@x.com', 'Carol', 'carol'), ('g4', 'd@x.com', 'Dave', 'dave')`); err != nil {
+		t.Fatal(err)
+	}
+	const alice, bob, carol, dave = 1, 2, 3, 4
+	ab, _ := repo.GetOrCreateDirect(ctx, alice, bob)
+	_, _ = repo.GetOrCreateDirect(ctx, alice, carol)
+	seen := time.Date(2026, 10, 29, 8, 0, 0, 0, time.UTC)
+	if _, err := pool.Exec(ctx, `UPDATE users SET last_seen_at = $1 WHERE id = $2`, seen, alice); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("audience is contacts who show presence", func(t *testing.T) {
+		a, err := repo.PresenceAudience(ctx, alice)
+		if err != nil || !a.Visible || a.LastSeenAt == nil || !a.LastSeenAt.Equal(seen) {
+			t.Fatalf("audience = %+v, %v", a, err)
+		}
+		if ids := sorted(a.ContactIDs); len(ids) != 2 || ids[0] != bob || ids[1] != carol {
+			t.Errorf("contacts = %v, want bob and carol (not dave)", ids)
+		}
+	})
+
+	t.Run("a user who hides presence is not in anyone's audience", func(t *testing.T) {
+		if _, err := pool.Exec(ctx, `UPDATE users SET show_presence = false WHERE id = $1`, carol); err != nil {
+			t.Fatal(err)
+		}
+		a, _ := repo.PresenceAudience(ctx, alice)
+		if len(a.ContactIDs) != 1 || a.ContactIDs[0] != bob {
+			t.Errorf("contacts = %v, want only bob", a.ContactIDs)
+		}
+		c, _ := repo.PresenceAudience(ctx, carol)
+		if c.Visible {
+			t.Error("carol hides presence but is visible")
+		}
+	})
+
+	t.Run("a user without conversations has no audience", func(t *testing.T) {
+		a, err := repo.PresenceAudience(ctx, dave)
+		if err != nil || !a.Visible || len(a.ContactIDs) != 0 {
+			t.Errorf("dave = %+v, %v", a, err)
+		}
+		if _, err := repo.PresenceAudience(ctx, 999); !errors.Is(err, apperr.ErrNotFound) {
+			t.Errorf("unknown user: err = %v", err)
+		}
+	})
+
+	t.Run("summaries carry both settings and the peer's last seen", func(t *testing.T) {
+		s, err := repo.GetForUser(ctx, ab, bob)
+		if err != nil || !s.viewerShowsPresence || !s.peerShowsPresence || s.peerLastSeenAt == nil {
+			t.Errorf("bob's view of alice = %+v, %v", s, err)
+		}
+	})
+}
+
+func sorted(ids []int64) []int64 {
+	out := slices.Clone(ids)
+	slices.Sort(out)
+	return out
 }

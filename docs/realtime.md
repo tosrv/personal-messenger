@@ -1,6 +1,6 @@
 # Real-time Protocol
 
-Personal Messenger pushes new messages to browsers over a WebSocket. Sending still goes through the REST API ([ADR 0006](adr/0006-send-over-rest-receive-over-websocket.md)), and PostgreSQL stays the source of truth ([ADR 0003](adr/0003-postgres-source-of-truth.md)).
+Personal Messenger pushes new messages, typing indicators, read receipts and presence to browsers over a WebSocket. Sending still goes through the REST API ([ADR 0006](adr/0006-send-over-rest-receive-over-websocket.md)); the only frame a client sends is the ephemeral typing signal ([ADR 0009](adr/0009-realtime-events-phase-2.md)). PostgreSQL stays the source of truth ([ADR 0003](adr/0003-postgres-source-of-truth.md)).
 
 ## Connecting
 
@@ -45,11 +45,53 @@ A message was stored in a conversation the user belongs to. It is sent to every 
 }
 ```
 
+### `typing`
+
+The other member of the conversation is typing ([ADR 0009](adr/0009-realtime-events-phase-2.md)). Sent only to the other members' connections, never stored. The client shows "typing…" for 6 s after the last event, and clears it early when a `message.new` from that user arrives.
+
+```json
+{ "type": "typing", "conversation_id": 7, "user_id": 2 }
+```
+
+### `conversation.read`
+
+A member moved their read marker forward (`POST /api/v1/conversations/:id/read`). Sent to every member: the other member uses it for read receipts, and the reader's other tabs refresh unread counts. Sent only when the marker actually moved. After a reconnect, the conversation summary's `peer_last_read_message_id` restores receipts.
+
+```json
+{ "type": "conversation.read", "conversation_id": 7, "user_id": 2, "last_read_message_id": 42 }
+```
+
+### `presence`
+
+A contact came online, went offline, or changed their privacy setting ([ADR 0010](adr/0010-presence-and-receipt-privacy.md)). A user is online while they have at least one open socket; `last_seen_at` is stored when their last socket closes. Sent only to users who share a conversation with them and who show their own presence (it is reciprocal), and only if the user shows theirs. `online: false` with `last_seen_at: null` means "now hidden".
+
+```json
+{ "type": "presence", "user_id": 2, "online": false, "last_seen_at": "2026-10-29T08:00:00Z" }
+```
+
+After a reconnect, the conversation summary's `peer_presence` (`{ "online", "last_seen_at" }`, omitted when hidden) restores it. The setting is `show_presence` on `GET/PATCH /api/v1/me`.
+
 The client must ignore event types it does not recognise, so new events can be added without breaking old tabs.
 
 ## Client → server
 
-Clients send **no data frames**. The server sets a 512-byte read limit and closes the connection if a client sends data anyway. Messages are sent with:
+The only data frame a client may send is the ephemeral typing signal ([ADR 0009](adr/0009-realtime-events-phase-2.md)):
+
+```json
+{ "type": "typing", "conversation_id": 7 }
+```
+
+The web client sends it at most once every 3 s per conversation while the user types. The server checks every frame:
+
+| Check | On failure |
+|---|---|
+| Text frame of at most 512 bytes | Connection closed (`1009`) |
+| JSON object with exactly `type: "typing"` and a positive `conversation_id` | Dropped, one strike |
+| Per-connection token bucket: burst 5, 1 frame per second | Dropped, one strike |
+| Sender is a member of the conversation | Dropped, one strike |
+| More than 20 strikes | Connection closed (`1008`) |
+
+Everything that changes stored state goes through REST. Messages are sent with:
 
 ```
 POST /api/v1/conversations/:id/messages

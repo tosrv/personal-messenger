@@ -1,14 +1,15 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { ArrowLeft, Trash2 } from 'lucide-react'
+import { ArrowLeft, Check, CheckCheck, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Avatar } from '../../components/Avatar'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { GuestBadge } from '../../components/GuestBadge'
 import { ErrorState, LoadingState } from '../../components/States'
 import { ApiError } from '../../lib/api'
-import { dayKey, formatDayLabel, formatTime } from '../../lib/time'
+import { dayKey, formatDayLabel, formatLastSeen, formatTime } from '../../lib/time'
 import { useMe } from '../auth/api'
 import { GUEST_RETENTION_NOTE } from '../auth/guestPolicy'
+import { useIsTyping, useTypingSignal } from '../realtime/typing'
 import {
   useConversation,
   useDeleteChat,
@@ -17,6 +18,7 @@ import {
   useSendMessage,
   type Message,
   type Peer,
+  type Presence,
 } from './api'
 import { Composer } from './Composer'
 import { Button } from '@/components/ui/button'
@@ -74,9 +76,18 @@ export function ChatPanel({
         >
           <ArrowLeft className="size-5" aria-hidden />
         </Button>
-        <Link to={`/u/${peer.username}`} className="flex items-center gap-2 hover:underline">
+        <Link
+          to={`/u/${peer.username}`}
+          className="flex min-w-0 items-center gap-2 hover:underline"
+        >
           <Avatar name={peer.display_name} src={peer.avatar_url} size="sm" />
-          <span className="font-medium">{peer.display_name}</span>
+          <span className="flex min-w-0 flex-col leading-tight">
+            <span className="truncate font-medium">{peer.display_name}</span>
+            <PeerStatus
+              conversationId={conversationId}
+              presence={conversation.data.peer_presence}
+            />
+          </span>
         </Link>
         {peer.is_guest && <GuestBadge />}
         <DeleteChatButton conversationId={conversationId} peer={peer} onDeleted={onDeleted} />
@@ -86,9 +97,27 @@ export function ChatPanel({
         key={conversationId}
         conversationId={conversationId}
         lastReadMessageId={conversation.data.last_read_message_id}
+        peerLastReadMessageId={conversation.data.peer_last_read_message_id}
       />
     </section>
   )
+}
+
+/** Under the peer's name: "typing…", else "online" or "last seen …" if allowed. */
+function PeerStatus({ conversationId, presence }: { conversationId: number; presence?: Presence }) {
+  const typing = useIsTyping(conversationId)
+  if (typing) {
+    return (
+      <span className="text-xs text-accent" aria-live="polite">
+        typing…
+      </span>
+    )
+  }
+  if (presence?.online) return <span className="text-xs text-ok">online</span>
+  if (presence?.last_seen_at) {
+    return <span className="text-xs text-muted">{formatLastSeen(presence.last_seen_at)}</span>
+  }
+  return null
 }
 
 function DeleteChatButton({
@@ -140,14 +169,17 @@ function DeleteChatButton({
 function Thread({
   conversationId,
   lastReadMessageId,
+  peerLastReadMessageId,
 }: {
   conversationId: number
   lastReadMessageId: number
+  peerLastReadMessageId: number
 }) {
   const me = useMe()
   const history = useMessages(conversationId)
   const send = useSendMessage(conversationId)
   const markRead = useMarkRead(conversationId)
+  const { notifyTyping, resetTyping } = useTypingSignal()
   const [pending, setPending] = useState<Pending[]>([])
 
   const scroller = useRef<HTMLDivElement>(null)
@@ -207,6 +239,7 @@ function Thread({
       createdAt: new Date().toISOString(),
     }
     nearBottom.current = true
+    resetTyping(conversationId)
     setPending((list) => [...list, p])
     deliver(p)
   }
@@ -265,6 +298,9 @@ function Thread({
                   )}
                   <Bubble mine={m.sender_id === me.data?.id} body={m.body}>
                     {formatTime(m.created_at)}
+                    {m.sender_id === me.data?.id && (
+                      <Receipt read={m.id <= peerLastReadMessageId} />
+                    )}
                   </Bubble>
                 </Fragment>
               ))}
@@ -301,7 +337,7 @@ function Thread({
           {GUEST_RETENTION_NOTE}
         </p>
       )}
-      <Composer onSend={onSend} />
+      <Composer onSend={onSend} onTyping={() => notifyTyping(conversationId)} />
     </>
   )
 }
@@ -317,6 +353,21 @@ function DaySeparator({ iso }: { iso: string }) {
         <time dateTime={iso}>{formatDayLabel(iso)}</time>
       </span>
     </li>
+  )
+}
+
+/** Read receipt on the current user's own stored messages. */
+function Receipt({ read }: { read: boolean }) {
+  const Icon = read ? CheckCheck : Check
+  return (
+    <span
+      role="img"
+      aria-label={read ? 'Read' : 'Sent'}
+      title={read ? 'Read' : 'Sent'}
+      className={`ml-1 inline-flex align-middle ${read ? 'text-accent' : ''}`}
+    >
+      <Icon className="size-3.5" aria-hidden />
+    </span>
   )
 }
 

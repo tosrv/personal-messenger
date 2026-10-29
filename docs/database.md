@@ -21,6 +21,8 @@ erDiagram
         citext username UK "3-32 chars: a-z, 0-9, _"
         boolean is_guest "guest mode (ADR 0008)"
         boolean display_name_customized "user edited the name"
+        boolean show_presence "online status / last seen visible (ADR 0010)"
+        timestamptz last_seen_at "last socket closed"
         timestamptz created_at
         timestamptz updated_at
     }
@@ -65,6 +67,7 @@ erDiagram
 | `email` | Kept for the owner's records. Never included in public profiles or search results. |
 | `display_name` + `display_name_customized` | Starts as the Google name and is refreshed on each sign-in, until the user edits it in settings. From then on `display_name_customized` is true and sign-in keeps the user's choice (migration 000002). |
 | `is_guest` + `users_identity_check` | Guests ([ADR 0008](adr/0008-guest-mode.md), migration 000004) have no Google identity or email; the CHECK keeps both required for everyone else. Guests who never wrote are deleted after 7 days. |
+| `show_presence` + `last_seen_at` | Online status and last seen ([ADR 0010](adr/0010-presence-and-receipt-privacy.md), migration 000005). `show_presence` (default true) is reciprocal: when false, the user neither shows nor sees presence. `last_seen_at` is written when the user's last WebSocket closes; "online" itself lives in memory in the hub. Read receipts reuse `conversation_members.last_read_message_id` and need no column. |
 | `username` `CITEXT` unique + `CHECK` | Case-insensitive uniqueness: `Tomy` and `tomy` cannot both exist. The check enforces the allowed format at the database level as well as in the service. |
 
 ### `sessions`

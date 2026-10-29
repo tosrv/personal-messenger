@@ -12,6 +12,8 @@ Each record captures one significant technical decision: the context, what was c
 | [0006](0006-send-over-rest-receive-over-websocket.md) | Send over REST, receive over WebSocket | Accepted |
 | [0007](0007-single-image-behind-host-nginx.md) | Ship one image from GHCR, behind the host's nginx | Accepted |
 | [0008](0008-guest-mode.md) | Guest mode: chat with the owner without a Google account | Accepted |
+| [0009](0009-realtime-events-phase-2.md) | Real-time events for typing, read receipts and presence (amends 0006) | Accepted |
+| [0010](0010-presence-and-receipt-privacy.md) | Privacy of presence, read receipts, typing and notifications | Accepted |
 
 ## Template
 

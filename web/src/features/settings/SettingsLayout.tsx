@@ -1,4 +1,12 @@
-import { ChevronRight, Globe, LogOut, Palette, UserRound, type LucideIcon } from 'lucide-react'
+import {
+  Bell,
+  ChevronRight,
+  Globe,
+  LogOut,
+  Palette,
+  UserRound,
+  type LucideIcon,
+} from 'lucide-react'
 import { NavLink, Outlet, useMatch } from 'react-router-dom'
 import { Avatar } from '../../components/Avatar'
 import { SidebarToggle } from '../../components/SidebarToggle'
@@ -12,6 +20,7 @@ type Item = { to: string; label: string; icon: LucideIcon }
 
 const items: Item[] = [
   { to: 'profile', label: 'Profile', icon: UserRound },
+  { to: 'notifications', label: 'Notifications', icon: Bell },
   { to: 'appearance', label: 'Appearance', icon: Palette },
   { to: 'language', label: 'Language', icon: Globe },
 ]

@@ -6,6 +6,7 @@ import { LegacyChatRedirect } from '../features/chat/LegacyChatRedirect'
 import { CHATS_PATH } from '../features/chat/navigation'
 import { AppearanceSettings } from '../features/settings/AppearanceSettings'
 import { LanguageSettings } from '../features/settings/LanguageSettings'
+import { NotificationSettings } from '../features/settings/NotificationSettings'
 import { ProfileSettings } from '../features/settings/ProfileSettings'
 import { SettingsLayout } from '../features/settings/SettingsLayout'
 import { HomeRoute } from '../features/system/HomeRoute'
@@ -35,6 +36,7 @@ export const router = createBrowserRouter([
               // Wide screens show Profile next to the menu; phones show only the menu.
               { index: true, element: <ProfileSettings /> },
               { path: 'profile', element: <ProfileSettings /> },
+              { path: 'notifications', element: <NotificationSettings /> },
               { path: 'appearance', element: <AppearanceSettings /> },
               { path: 'language', element: <LanguageSettings /> },
               { path: '*', element: <Navigate to="/settings" replace /> },

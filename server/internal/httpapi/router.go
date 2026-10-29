@@ -30,6 +30,7 @@ type Deps struct {
 	Conversations *conversation.Service
 	Messages      *message.Service
 	Hub           *realtime.Hub
+	Presence      *realtime.Presence
 }
 
 // rateRules limit abuse-prone endpoints (PRD §8). Signed-in routes count per
@@ -110,9 +111,9 @@ func NewRouter(cfg config.Config, d Deps) *gin.Engine {
 	conversation.NewHandler(d.Conversations).Register(private)
 	message.NewHandler(d.Messages).Register(private)
 
-	// Real-time events (server → client only, see docs/realtime.md).
+	// Real-time events (see docs/realtime.md).
 	ws := r.Group("", auth.RequireSession(d.Sessions, cfg.IsProduction()))
-	realtime.NewHandler(d.Hub, cfg.AllowedOrigins, sessionStillValid(d.Sessions), d.Logger).Register(ws)
+	realtime.NewHandler(d.Hub, d.Conversations, d.Presence, cfg.AllowedOrigins, sessionStillValid(d.Sessions), d.Logger).Register(ws)
 
 	// Production image: the same server also serves the frontend (one origin, ADR 0002).
 	if cfg.StaticDir != "" {

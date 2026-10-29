@@ -5,6 +5,7 @@ import { LoadingState } from '../../components/States'
 import { api } from '../../lib/api'
 import { meQueryKey, useMe, type Me } from '../auth/api'
 import { GUEST_RETENTION_NOTE } from '../auth/guestPolicy'
+import { conversationsKey } from '../chat/api'
 import { SettingsPanel } from './SettingsPanel'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,6 +37,7 @@ export function ProfileSettings() {
       }
     >
       <ProfileForm me={me.data} />
+      <PresenceSetting me={me.data} />
     </SettingsPanel>
   )
 }
@@ -138,5 +140,54 @@ function ProfileForm({ me }: { me: Me }) {
         </div>
       </form>
     </>
+  )
+}
+
+/**
+ * Online status / last seen privacy (ADR 0010). Saved as soon as it changes.
+ * Reciprocal: hiding yours also hides everyone else's from you.
+ */
+function PresenceSetting({ me }: { me: Me }) {
+  const queryClient = useQueryClient()
+  const save = useMutation({
+    mutationFn: (show: boolean) =>
+      api<Me>('/me', { method: 'PATCH', json: { show_presence: show } }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(meQueryKey, updated)
+      // What you can see of others changes too.
+      void queryClient.invalidateQueries({ queryKey: conversationsKey })
+    },
+  })
+  const checked = save.isPending ? save.variables : me.show_presence !== false
+
+  return (
+    <section className="mt-8 border-t border-line pt-6" aria-labelledby="privacy-heading">
+      <h3 id="privacy-heading" className="text-sm font-medium">
+        Privacy
+      </h3>
+      <div className="mt-3 flex items-start gap-3">
+        <input
+          id="show-presence"
+          type="checkbox"
+          checked={checked}
+          disabled={save.isPending}
+          onChange={(e) => save.mutate(e.target.checked)}
+          aria-describedby="show-presence-hint"
+          className="mt-1 size-4 accent-accent"
+        />
+        <div>
+          <Label htmlFor="show-presence" className="block">
+            Show online status
+          </Label>
+          <p id="show-presence-hint" className="text-sm text-muted">
+            People you chat with see when you are online and when you were last seen. If you turn
+            this off, you won't see theirs either.
+          </p>
+          <p role="status" aria-live="polite" className="text-sm">
+            {save.isError && <span className="text-danger">{save.error.message}</span>}
+          </p>
+        </div>
+      </div>
+    </section>
   )
 }

@@ -21,7 +21,7 @@ personal-messenger/
 ├── web/                  # React + Vite SPA
 │   └── src/
 │       ├── app/          # router, providers, layout
-│       ├── features/     # auth/, users/, chat/, realtime/, system/ — api.ts + pages + tests
+│       ├── features/     # auth/, users/, chat/, realtime/, notifications/, settings/, system/
 │       ├── components/   # shared UI (states, avatar, error boundary)
 │       ├── lib/          # fetch wrapper, WebSocket client, safe redirect, time
 │       └── test/         # Vitest setup + render helpers
@@ -36,7 +36,7 @@ personal-messenger/
 │   │   ├── user/         # profiles + search             (M2)
 │   │   ├── conversation/ # DMs + membership              (M3)
 │   │   ├── message/      # persistence + pagination      (M3)
-│   │   └── realtime/     # WebSocket hub                 (M4)
+│   │   └── realtime/     # WebSocket hub, typing, presence (M4, Phase 2)
 │   └── migrations/       # versioned SQL
 └── infra/
     ├── compose.prod.yaml # production stack (app image + db), copied to the VPS
@@ -141,3 +141,4 @@ To build the production image locally: `docker build -t personal-messenger .`
 - [x] M3 Messaging API — conversations, messages, pagination, membership checks
 - [x] M4 Real-time — WebSocket push, reconnect with backoff, catch-up sync, idempotent sends
 - [ ] M5 Production readiness — rate limiting, CI, hardened HTTPS stack, backup/restore drill, runbook ✓ · **remaining:** deploy to a VPS with a domain, link from the portfolio
+- [x] Phase 2 — typing indicators, read receipts, online status / last seen with a privacy toggle, in-app notifications (tab badge, optional sound, system notifications while the tab is hidden; no Web Push). See [ADR 0009](docs/adr/0009-realtime-events-phase-2.md) and [ADR 0010](docs/adr/0010-presence-and-receipt-privacy.md).

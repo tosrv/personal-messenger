@@ -43,7 +43,7 @@ describe('SettingsLayout', () => {
     localStorage.clear()
   })
 
-  it('lists Profile, Appearance and Language, and opens Profile by default', async () => {
+  it('lists Profile, Notifications, Appearance and Language, and opens Profile by default', async () => {
     mockApi({ 'GET /me': () => [200, me] })
     renderSettings()
 
@@ -51,7 +51,7 @@ describe('SettingsLayout', () => {
     const names = within(menu)
       .getAllByRole('link')
       .map((a) => a.textContent)
-    expect(names).toEqual(['Profile', 'Appearance', 'Language'])
+    expect(names).toEqual(['Profile', 'Notifications', 'Appearance', 'Language'])
     expect(await screen.findByRole('heading', { name: 'Profile' })).toBeInTheDocument()
     expect(screen.getByLabelText('Name')).toHaveValue('Tomy')
   })

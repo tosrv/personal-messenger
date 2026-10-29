@@ -29,6 +29,18 @@ func (m staticMembers) MemberIDs(_ context.Context, conversationID int64) ([]int
 
 // newServer serves /ws with a fake auth step: the user ID comes from ?user=.
 func newServer(t *testing.T, hub *Hub) *httptest.Server {
+	return newServerWithMembers(t, hub, staticMembers{})
+}
+
+func newServerWithPresence(t *testing.T, hub *Hub, presence PresenceTracker) *httptest.Server {
+	return newServerWith(t, hub, staticMembers{}, presence)
+}
+
+func newServerWithMembers(t *testing.T, hub *Hub, members MemberLookup) *httptest.Server {
+	return newServerWith(t, hub, members, nil)
+}
+
+func newServerWith(t *testing.T, hub *Hub, members MemberLookup, presence PresenceTracker) *httptest.Server {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -37,7 +49,7 @@ func newServer(t *testing.T, hub *Hub) *httptest.Server {
 		httpx.SetUserID(c, id)
 	})
 	alwaysValid := func(context.Context, *gin.Context) bool { return true }
-	NewHandler(hub, []string{"http://allowed.test"}, alwaysValid, quiet).Register(g)
+	NewHandler(hub, members, presence, []string{"http://allowed.test"}, alwaysValid, quiet).Register(g)
 	srv := httptest.NewServer(r)
 	t.Cleanup(srv.Close)
 	return srv
@@ -145,7 +157,7 @@ func TestClientsAreRemovedOnDisconnectAndShutdown(t *testing.T) {
 
 func TestSlowClientIsDroppedInsteadOfBlocking(t *testing.T) {
 	hub := NewHub()
-	c := hub.register(1)
+	c, _ := hub.register(1)
 	payload := []byte(`{}`)
 	done := make(chan struct{})
 	go func() {
@@ -164,4 +176,23 @@ func TestSlowClientIsDroppedInsteadOfBlocking(t *testing.T) {
 	default:
 		t.Error("slow client was not dropped")
 	}
+}
+
+func TestReadReceiptGoesToEveryMember(t *testing.T) {
+	hub := NewHub()
+	srv := newServer(t, hub)
+	alice := dial(t, srv, 1, "http://allowed.test")
+	bob := dial(t, srv, 2, "http://allowed.test")
+	carol := dial(t, srv, 3, "http://allowed.test")
+	waitFor(t, func() bool { return hub.Connections() == 3 })
+
+	NewNotifier(hub, staticMembers{7: {1, 2}}, quiet).ConversationRead(context.Background(), 7, 2, 42)
+
+	for name, conn := range map[string]*websocket.Conn{"alice": alice, "bob": bob} {
+		ev := read(t, conn)
+		if ev.Type != EventRead || ev.ConversationID != 7 || ev.UserID != 2 || ev.LastReadMessageID != 42 {
+			t.Errorf("%s got %+v", name, ev)
+		}
+	}
+	expectSilence(t, "carol", carol)
 }
